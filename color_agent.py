@@ -154,8 +154,20 @@ def _now_jst_prompt():
 _NANACHI_WORDS = ["オイラ","だぜ","だな","だよ","なぁ","りょーご"]
 _NANACHI_ENDINGS = ["だぜ","だな","だよ","なぁ"]
 
+def _strip_icall(text: str) -> str:
+    """_icall_ マーカーとその中のJSON断片を除去する"""
+    # _icall_ ... _icall_ ブロック全体を除去
+    text = _re.sub(r'_icall_.*?_icall_', '', text, flags=_re.DOTALL)
+    # 残った単独 _icall_ を除去
+    text = _re.sub(r'_icall_\s*', '', text)
+    # tool_call JSON断片が残っていたら除去
+    text = _re.sub(r'\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^}]*\}\s*\}', '', text, flags=_re.DOTALL)
+    return text.strip()
+
+
 def _restyle(text: str) -> str:
     """LLM再呼び出しなしで口調を補正する（高速版）"""
+    text = _strip_icall(text)
     try:
         from nanachi_modules._text_cleanup import strip_tool_call_garbage
         text = strip_tool_call_garbage(text)
