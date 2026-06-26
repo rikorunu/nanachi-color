@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ナナチカラー - カラー配色AI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex-direction:column;height:100dvh;height:100vh}
+#hd{background:linear-gradient(135deg,#4a0a8e 0%,#1a0a5e 50%,#0a2a6e 100%);padding:12px 16px;text-align:center;color:#c792ea;font-size:1.1em;font-weight:700;border-bottom:1px solid #3e1a7e}
+#hd small{font-size:.72em;color:#aab0ee;font-weight:400;margin-left:8px}
+#chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.mu{align-self:flex-end;max-width:82%}
+.ma{align-self:flex-start;max-width:94%}
+.bu{background:#7c3aed;color:#fff;padding:10px 14px;border-radius:18px 18px 4px 18px;word-break:break-word;white-space:pre-wrap}
+.ba{background:#1e1a3e;padding:10px 14px;border-radius:18px 18px 18px 4px;word-break:break-word;border:1px solid #2e1a5e;line-height:1.7}
+.ld .txt-block{color:#8888aa;font-style:italic}
+.txt-block{white-space:pre-wrap;word-break:break-word}
+.card-grid{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.img-card{width:calc(33.33% - 4px);min-width:72px;background:#1a1040;border-radius:8px;overflow:hidden;text-decoration:none;border:1px solid #2e1a5e;display:block;transition:.15s}
+.img-card:hover{border-color:#7c3aed;transform:translateY(-2px);box-shadow:0 4px 12px rgba(124,58,237,.4)}
+.img-card img{width:100%;height:72px;object-fit:cover;display:block}
+.vid-card{width:calc(50% - 3px);background:#1a1040;border-radius:8px;overflow:hidden;text-decoration:none;border:1px solid #2e1a5e;display:block;transition:.15s}
+.vid-card:hover{border-color:#e94560;transform:translateY(-2px);box-shadow:0 4px 12px rgba(233,69,96,.3)}
+.vid-thumb{position:relative;width:100%;aspect-ratio:16/9;background:#0d0820;overflow:hidden}
+.vid-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:38px;height:38px;background:rgba(0,0,0,.75);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;pointer-events:none;border:2px solid rgba(255,255,255,.3)}
+.card-cap{font-size:.7em;padding:4px 6px;color:#b0a0cc;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+@media(max-width:360px){.img-card{width:calc(50% - 3px)}.vid-card{width:100%}}
+#quick{padding:6px 12px 2px;background:#120820;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid #2e1a5e}
+.qbtn{background:linear-gradient(135deg,#3a1a6e,#1a3a6e);color:#c8c8ff;border:1px solid #5a3a9e;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:.82em;transition:.15s;white-space:nowrap}
+.qbtn:hover{background:linear-gradient(135deg,#5a2a9e,#2a5a9e);border-color:#9060ee;transform:translateY(-1px);box-shadow:0 3px 10px rgba(100,60,200,.4)}
+#ft{padding:10px 12px;background:#120820;display:flex;gap:8px;border-top:1px solid #3e1a6e;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+#inp{flex:1;background:#1a1a3e;border:1px solid #4c1d95;border-radius:22px;padding:10px 16px;color:#e0e0ff;font-size:.95em;outline:none}
+#inp:focus{border-color:#9060ee}
+#sbtn{background:linear-gradient(135deg,#7c3aed,#3a5aed);color:#fff;border:none;border-radius:22px;padding:10px 20px;cursor:pointer;font-weight:600;white-space:nowrap;font-size:.95em;align-self:flex-end;transition:.15s}
+#sbtn:hover{background:linear-gradient(135deg,#9050ff,#5070ff)}
+#sbtn:disabled{background:#3a3a5e;color:#888;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div id="hd">🎨 ナナチカラー<small>配色 / 補色 / コントラスト / カラーパレット</small></div>
+<div id="chat"></div>
+<div id="quick">
+  <button class="qbtn" onclick="quickRandom()">🎲 ランダム配色</button>
+  <button class="qbtn" onclick="quickComplement()">🔵 補色提案</button>
+</div>
+<div id="ft">
+<input id="inp" type="text" placeholder="色名・HEXコード・配色の相談など..." autocomplete="off">
+<button id="sbtn" onclick="doSend()">送信</button>
+</div>
+<script>
+var base=location.pathname.replace(/\/chat\/?$/,'');
+var API='http://localhost:10003'+base+'/agent';
+var SID=localStorage.getItem('ncolor_id')||('s'+Date.now());
+localStorage.setItem('ncolor_id',SID);
+var busy=false;
+
+function renderColorSwatches(text){
+  return text.replace(/#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/g,function(hex){
+    return hex+'<span style="display:inline-block;width:16px;height:16px;background:'+hex+';border:1px solid #ccc;border-radius:2px;vertical-align:middle;margin:0 2px;"></span>';
+  });
+}
+
+function mkImgCard(title,imgUrl,srcUrl){
+  var a=document.createElement('a');
+  a.href=srcUrl||'#';a.target='_blank';a.rel='noopener';a.className='img-card';a.title=title;
+  var img=document.createElement('img');img.src=imgUrl;img.alt=title;img.loading='lazy';
+  img.onerror=function(){this.closest('.img-card').style.display='none';};
+  var cap=document.createElement('div');cap.className='card-cap';cap.textContent=title;
+  a.appendChild(img);a.appendChild(cap);return a;
+}
+
+function mkVidCard(title,vidUrl,thumbUrl){
+  var a=document.createElement('a');
+  a.href=vidUrl||'#';a.target='_blank';a.rel='noopener';a.className='vid-card';a.title=title;
+  var th=document.createElement('div');th.className='vid-thumb';
+  if(thumbUrl){
+    var img=document.createElement('img');img.src=thumbUrl;img.alt=title;img.loading='lazy';
+    img.onerror=function(){this.style.display='none';};
+    th.appendChild(img);
+  }
+  var pb=document.createElement('div');pb.className='play-btn';pb.textContent='▶';th.appendChild(pb);
+  var cap=document.createElement('div');cap.className='card-cap';cap.textContent=title;
+  a.appendChild(th);a.appendChild(cap);return a;
+}
+
+function renderRich(container,text){
+  var swatchedText=renderColorSwatches(text);
+  var parts=swatchedText.split(/(\[IMGCARD:[^\]]*\]|\[VIDCARD:[^\]]*\])/);
+  var grid=null;
+  for(var i=0;i<parts.length;i++){
+    var pt=parts[i];
+    if(pt.length>8&&pt.slice(0,8)==='[IMGCARD'){
+      if(!grid||grid.dataset.t!=='img'){
+        grid=document.createElement('div');grid.className='card-grid';grid.dataset.t='img';container.appendChild(grid);
+      }
+      var iIn=pt.slice(9,-1);
+      var iF=iIn.indexOf('|'),iS=iIn.indexOf('|',iF+1);
+      grid.appendChild(mkImgCard(iIn.slice(0,iF),iIn.slice(iF+1,iS),iIn.slice(iS+1)));
+    }else if(pt.length>8&&pt.slice(0,8)==='[VIDCARD'){
+      if(!grid||grid.dataset.t!=='vid'){
+        grid=document.createElement('div');grid.className='card-grid';grid.dataset.t='vid';container.appendChild(grid);
+      }
+      var vIn=pt.slice(9,-1);
+      var vF=vIn.indexOf('|'),vS=vIn.indexOf('|',vF+1);
+      grid.appendChild(mkVidCard(vIn.slice(0,vF),vIn.slice(vF+1,vS),vIn.slice(vS+1)));
+    }else if(pt.trim()||pt.match(/<span/)){
+      grid=null;
+      var d=document.createElement('div');d.className='txt-block';d.innerHTML=pt;container.appendChild(d);
+    }
+  }
+}
+
+function addMsg(role,text,id){
+  var c=document.getElementById('chat');
+  var w=document.createElement('div');w.className=role==='u'?'mu':'ma';
+  if(id)w.id=id;
+  var b=document.createElement('div');b.className=role==='u'?'bu':'ba';
+  if(role==='u'){b.textContent=text;}else{renderRich(b,text);}
+  w.appendChild(b);c.appendChild(w);c.scrollTop=c.scrollHeight;return w;
+}
+
+function sendPrompt(prompt){
+  if(busy)return;
+  var sbtn=document.getElementById('sbtn');
+  addMsg('u',prompt);busy=true;sbtn.disabled=true;
+  var lid='l'+Date.now();
+  var lw=addMsg('a','調べてるぜ...むにゃ',lid);
+  lw.querySelector('.ba').classList.add('ld');
+  fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt,session_id:SID})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var el=document.getElementById(lid);
+    el.querySelector('.ba').remove();
+    var nb=document.createElement('div');nb.className='ba';
+    renderRich(nb,d.answer||JSON.stringify(d));
+    el.appendChild(nb);
+  })
+  .catch(function(e){
+    var ba=document.getElementById(lid).querySelector('.ba');
+    ba.textContent='ERR: '+e.message;ba.classList.remove('ld');
+  })
+  .finally(function(){
+    busy=false;sbtn.disabled=false;
+    document.getElementById('inp').focus();
+    document.getElementById('chat').scrollTop=9999;
+  });
+}
+
+function doSend(){
+  var inp=document.getElementById('inp');
+  var prompt=inp.value.trim();if(!prompt)return;
+  inp.value='';
+  sendPrompt(prompt);
+}
+
+function quickRandom(){
+  sendPrompt('ランダムな配色を5色生成してくれ');
+}
+
+function quickComplement(){
+  var inp=document.getElementById('inp');
+  var val=inp.value.trim();
+  if(val){
+    inp.value='';
+    sendPrompt(val+'の補色を提案して');
+  }else{
+    sendPrompt('#3498DBの補色を提案して');
+  }
+}
+
+document.getElementById('inp').addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}
+});
+
+addMsg('a','んなぁ～、りょーご！\nカラーAIだぜ。色名・HEXコード・配色の相談、何でも来いだよ。\n🎲 ランダム配色や 🔵 補色提案ボタンも使えるぜ。');
+</script>
+</body>
+</html>

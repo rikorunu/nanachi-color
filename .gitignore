@@ -1,0 +1,25 @@
+# ChromaDB (大容量・ローカル専用)
+color_rag_db/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# ログ
+logs/
+*.log
+
+# 完了マーカー
+COMPLETE_TASK_*
+
+# venv
+.venv/
+venv/
+
+# DB
+*.db
+*.sqlite3
