@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ナナチカラー - カラー配色AI</title>
+<title>ナナチカラー</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex-direction:column;height:100dvh;height:100vh}
@@ -38,14 +38,14 @@ body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex
 </style>
 </head>
 <body>
-<div id="hd">🎨 ナナチカラー<small>配色 / 補色 / コントラスト / カラーパレット</small></div>
+<div id="hd">🎨 ナナチカラー<small>配色 / 補色 / パレット / コントラスト</small></div>
 <div id="chat"></div>
 <div id="quick">
-  <button class="qbtn" onclick="quickRandom()">🎲 ランダム配色</button>
+  <button class="qbtn" onclick="quickSend('ランダムな配色を5色生成してくれ')">🎲 ランダム配色</button>
   <button class="qbtn" onclick="quickComplement()">🔵 補色提案</button>
 </div>
 <div id="ft">
-<input id="inp" type="text" placeholder="色名・HEXコード・配色の相談など..." autocomplete="off">
+<input id="inp" type="text" placeholder="何でも聞いてくれだよ..." autocomplete="off">
 <button id="sbtn" onclick="doSend()">送信</button>
 </div>
 <script>
@@ -56,7 +56,7 @@ var busy=false;
 
 function renderColorSwatches(text){
   return text.replace(/#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/g,function(hex){
-    return hex+'<span style="display:inline-block;width:16px;height:16px;background:'+hex+';border:1px solid #ccc;border-radius:2px;vertical-align:middle;margin:0 2px;"></span>';
+    return hex+'<span style="display:inline-block;width:16px;height:16px;background:'+hex+';border:1px solid #555;border-radius:2px;vertical-align:middle;margin:0 2px;"></span>';
   });
 }
 
@@ -90,18 +90,12 @@ function renderRich(container,text){
   for(var i=0;i<parts.length;i++){
     var pt=parts[i];
     if(pt.length>8&&pt.slice(0,8)==='[IMGCARD'){
-      if(!grid||grid.dataset.t!=='img'){
-        grid=document.createElement('div');grid.className='card-grid';grid.dataset.t='img';container.appendChild(grid);
-      }
-      var iIn=pt.slice(9,-1);
-      var iF=iIn.indexOf('|'),iS=iIn.indexOf('|',iF+1);
+      if(!grid||grid.dataset.t!=='img'){grid=document.createElement('div');grid.className='card-grid';grid.dataset.t='img';container.appendChild(grid);}
+      var iIn=pt.slice(9,-1);var iF=iIn.indexOf('|'),iS=iIn.indexOf('|',iF+1);
       grid.appendChild(mkImgCard(iIn.slice(0,iF),iIn.slice(iF+1,iS),iIn.slice(iS+1)));
     }else if(pt.length>8&&pt.slice(0,8)==='[VIDCARD'){
-      if(!grid||grid.dataset.t!=='vid'){
-        grid=document.createElement('div');grid.className='card-grid';grid.dataset.t='vid';container.appendChild(grid);
-      }
-      var vIn=pt.slice(9,-1);
-      var vF=vIn.indexOf('|'),vS=vIn.indexOf('|',vF+1);
+      if(!grid||grid.dataset.t!=='vid'){grid=document.createElement('div');grid.className='card-grid';grid.dataset.t='vid';container.appendChild(grid);}
+      var vIn=pt.slice(9,-1);var vF=vIn.indexOf('|'),vS=vIn.indexOf('|',vF+1);
       grid.appendChild(mkVidCard(vIn.slice(0,vF),vIn.slice(vF+1,vS),vIn.slice(vS+1)));
     }else if(pt.trim()||pt.match(/<span/)){
       grid=null;
@@ -129,12 +123,7 @@ function sendPrompt(prompt){
 
   function finish(answer){
     var el=document.getElementById(lid);
-    if(el){
-      el.querySelector('.ba').remove();
-      var nb=document.createElement('div');nb.className='ba';
-      renderRich(nb,answer);
-      el.appendChild(nb);
-    }
+    if(el){el.querySelector('.ba').remove();var nb=document.createElement('div');nb.className='ba';renderRich(nb,answer);el.appendChild(nb);}
     busy=false;sbtn.disabled=false;
     document.getElementById('inp').focus();
     document.getElementById('chat').scrollTop=9999;
@@ -147,22 +136,15 @@ function sendPrompt(prompt){
 
   fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:prompt,session_id:SID})})
   .then(function(r){
-    var reader=r.body.getReader();
-    var dec=new TextDecoder();
-    var buf='';
+    var reader=r.body.getReader(),dec=new TextDecoder(),buf='';
     function pump(){
       return reader.read().then(function(chunk){
         if(chunk.done)return;
         buf+=dec.decode(chunk.value,{stream:true});
-        var lines=buf.split('\n');
-        buf=lines.pop();
+        var lines=buf.split('\n');buf=lines.pop();
         for(var i=0;i<lines.length;i++){
-          var line=lines[i];
-          if(line.slice(0,6)==='data: '){
-            try{
-              var d=JSON.parse(line.slice(6));
-              if(d.answer||d.reply){finish(d.answer||d.reply);return;}
-            }catch(e){}
+          if(lines[i].slice(0,6)==='data: '){
+            try{var d=JSON.parse(lines[i].slice(6));if(d.answer||d.reply){finish(d.answer||d.reply);return;}}catch(e){}
           }
         }
         return pump();
@@ -176,30 +158,22 @@ function sendPrompt(prompt){
 function doSend(){
   var inp=document.getElementById('inp');
   var prompt=inp.value.trim();if(!prompt)return;
-  inp.value='';
-  sendPrompt(prompt);
+  inp.value='';sendPrompt(prompt);
 }
 
-function quickRandom(){
-  sendPrompt('ランダムな配色を5色生成してくれ');
-}
+function quickSend(msg){sendPrompt(msg);}
 
 function quickComplement(){
-  var inp=document.getElementById('inp');
-  var val=inp.value.trim();
-  if(val){
-    inp.value='';
-    sendPrompt(val+'の補色を提案して');
-  }else{
-    sendPrompt('#3498DBの補色を提案して');
-  }
+  var val=document.getElementById('inp').value.trim();
+  document.getElementById('inp').value='';
+  sendPrompt(val?val+'の補色を提案して':'#3498DBの補色を提案して');
 }
 
 document.getElementById('inp').addEventListener('keydown',function(e){
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}
 });
 
-addMsg('a','んなぁ～、りょーご！\nカラーAIだぜ。色名・HEXコード・配色の相談、何でも来いだよ。\n🎲 ランダム配色や 🔵 補色提案ボタンも使えるぜ。');
+addMsg('a','んなぁ～、りょーご！\nカラーAIだぜ。配色・補色・パレット生成、何でも来いだよ。\nHEXコード（例: #FF5733）や色名（桜色・コーラルなど）で聞いてくれな。');
 </script>
 </body>
 </html>
