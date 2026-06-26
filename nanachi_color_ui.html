@@ -50,7 +50,7 @@ body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex
 </div>
 <script>
 var base=location.pathname.replace(/\/chat\/?$/,'');
-var API=base+'/agent';
+var API=base+'/chat';
 var SID=localStorage.getItem('ncolor_id')||('s'+Date.now());
 localStorage.setItem('ncolor_id',SID);
 var busy=false;
@@ -127,24 +127,51 @@ function sendPrompt(prompt){
   var lid='l'+Date.now();
   var lw=addMsg('a','調べてるぜ...むにゃ',lid);
   lw.querySelector('.ba').classList.add('ld');
-  fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt,session_id:SID})})
-  .then(function(r){return r.json();})
-  .then(function(d){
+
+  function finish(answer){
     var el=document.getElementById(lid);
-    el.querySelector('.ba').remove();
-    var nb=document.createElement('div');nb.className='ba';
-    renderRich(nb,d.answer||JSON.stringify(d));
-    el.appendChild(nb);
-  })
-  .catch(function(e){
-    var ba=document.getElementById(lid).querySelector('.ba');
-    ba.textContent='ERR: '+e.message;ba.classList.remove('ld');
-  })
-  .finally(function(){
+    if(el){
+      el.querySelector('.ba').remove();
+      var nb=document.createElement('div');nb.className='ba';
+      renderRich(nb,answer);
+      el.appendChild(nb);
+    }
     busy=false;sbtn.disabled=false;
     document.getElementById('inp').focus();
     document.getElementById('chat').scrollTop=9999;
-  });
+  }
+  function onErr(msg){
+    var el=document.getElementById(lid);
+    if(el){var ba=el.querySelector('.ba');ba.textContent='ERR: '+msg;ba.classList.remove('ld');}
+    busy=false;sbtn.disabled=false;
+  }
+
+  fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:prompt,session_id:SID})})
+  .then(function(r){
+    var reader=r.body.getReader();
+    var dec=new TextDecoder();
+    var buf='';
+    function pump(){
+      return reader.read().then(function(chunk){
+        if(chunk.done)return;
+        buf+=dec.decode(chunk.value,{stream:true});
+        var lines=buf.split('\n');
+        buf=lines.pop();
+        for(var i=0;i<lines.length;i++){
+          var line=lines[i];
+          if(line.slice(0,6)==='data: '){
+            try{
+              var d=JSON.parse(line.slice(6));
+              if(d.answer||d.reply){finish(d.answer||d.reply);return;}
+            }catch(e){}
+          }
+        }
+        return pump();
+      });
+    }
+    return pump();
+  })
+  .catch(function(e){onErr(e.message);});
 }
 
 function doSend(){

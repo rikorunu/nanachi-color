@@ -698,9 +698,51 @@ async def api_chat_alias(p: dict):
     return await api_chat(p)
 
 
+# ===== /agent (JSON返却・UI用) =====
+@app.post("/agent")
+async def agent_endpoint(p: dict):
+    """UIのfetch().json()用 — SSEではなくJSONで返す。"""
+    pr = p.get("message", "") or p.get("prompt", "")
+    sid = p.get("session_id", "color_default")
+
+    print(f"[AGENT] sid={sid} msg={pr[:60]!r}", flush=True)
+
+    h = _load_history(sid)
+    _sys_with_now = _now_jst_prompt() + SYSTEM_PROMPT
+    msgs = [{"role": "system", "content": _sys_with_now}] + h + [{"role": "user", "content": pr}]
+
+    import traceback as _tb
+    try:
+        res = await asyncio.to_thread(agent.invoke, {"messages": msgs})
+        ans = res["messages"][-1].content
+    except Exception as e:
+        print("[AGENT ERROR]\n" + _tb.format_exc(), flush=True)
+        ans = f"んなぁ、エラーが出たぜ…({type(e).__name__}: {str(e)[:120]})"
+
+    try:
+        ans = _process_reply(ans, _TOOLS_MAP)
+    except Exception:
+        pass
+
+    ans = _restyle(ans)
+    ans = ans.replace("\\n", "\n") if isinstance(ans, str) else ans
+
+    if _diagnose_chinese_contamination(ans, f"agent_sid={sid}"):
+        ans = _strip_chinese_segments(ans)
+        ans = _restyle(ans)
+
+    _save_history(sid, "user", pr)
+    _save_history(sid, "assistant", ans)
+
+    return JSONResponse({"answer": ans, "reply": ans, "session_id": sid})
+
+
 # ===== ルート =====
 @app.get("/")
 async def _root():
+    ui_path = Path("/home/arc_e/nanachi-color/nanachi_color_ui.html")
+    if ui_path.exists():
+        return HTMLResponse(content=ui_path.read_text(encoding="utf-8"))
     return {"service": "Nanachi Color AI", "port": 10003, "status": "ok"}
 
 
