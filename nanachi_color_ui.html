@@ -49,8 +49,7 @@ body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex
 <button id="sbtn" onclick="doSend()">送信</button>
 </div>
 <script>
-var base=location.pathname.replace(/\/chat\/?$/,'');
-var API=base+'/chat';
+var API='/chat';
 var SID=localStorage.getItem('ncolor_id')||('s'+Date.now());
 localStorage.setItem('ncolor_id',SID);
 var busy=false;
