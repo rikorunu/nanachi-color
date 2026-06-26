@@ -7,8 +7,8 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex-direction:column;height:100dvh;height:100vh}
-#hd{background:linear-gradient(135deg,#4a0a8e 0%,#1a0a5e 50%,#0a2a6e 100%);padding:12px 16px;text-align:center;color:#c792ea;font-size:1.1em;font-weight:700;border-bottom:1px solid #3e1a7e}
-#hd small{font-size:.72em;color:#aab0ee;font-weight:400;margin-left:8px}
+#hd{background:#1a0a2e;padding:12px 16px;text-align:center;color:#c792ea;font-size:1.1em;font-weight:700;border-bottom:1px solid #2e1a5e}
+#hd small{font-size:.72em;color:#9988cc;font-weight:400;margin-left:8px}
 #chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
 .mu{align-self:flex-end;max-width:82%}
 .ma{align-self:flex-start;max-width:94%}
@@ -28,13 +28,12 @@ body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex
 .card-cap{font-size:.7em;padding:4px 6px;color:#b0a0cc;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 @media(max-width:360px){.img-card{width:calc(50% - 3px)}.vid-card{width:100%}}
 #quick{padding:6px 12px 2px;background:#120820;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid #2e1a5e}
-.qbtn{background:linear-gradient(135deg,#3a1a6e,#1a3a6e);color:#c8c8ff;border:1px solid #5a3a9e;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:.82em;transition:.15s;white-space:nowrap}
-.qbtn:hover{background:linear-gradient(135deg,#5a2a9e,#2a5a9e);border-color:#9060ee;transform:translateY(-1px);box-shadow:0 3px 10px rgba(100,60,200,.4)}
-#ft{padding:10px 12px;background:#120820;display:flex;gap:8px;border-top:1px solid #3e1a6e;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+.qbtn{background:#2e1a5e;color:#c8c8ff;border:1px solid #4c1d95;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:.82em;white-space:nowrap}
+.qbtn:hover{background:#3a2a7e}
+#ft{padding:10px 12px;background:#120820;display:flex;gap:8px;border-top:1px solid #2e1a5e;padding-bottom:max(10px,env(safe-area-inset-bottom))}
 #inp{flex:1;background:#1a1a3e;border:1px solid #4c1d95;border-radius:22px;padding:10px 16px;color:#e0e0ff;font-size:.95em;outline:none}
-#inp:focus{border-color:#9060ee}
-#sbtn{background:linear-gradient(135deg,#7c3aed,#3a5aed);color:#fff;border:none;border-radius:22px;padding:10px 20px;cursor:pointer;font-weight:600;white-space:nowrap;font-size:.95em;align-self:flex-end;transition:.15s}
-#sbtn:hover{background:linear-gradient(135deg,#9050ff,#5070ff)}
+#inp:focus{border-color:#7c3aed}
+#sbtn{background:#7c3aed;color:#fff;border:none;border-radius:22px;padding:10px 20px;cursor:pointer;font-weight:600;white-space:nowrap;font-size:.95em;align-self:flex-end}
 #sbtn:disabled{background:#3a3a5e;color:#888;cursor:not-allowed}
 </style>
 </head>
@@ -51,7 +50,7 @@ body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex
 </div>
 <script>
 var base=location.pathname.replace(/\/chat\/?$/,'');
-var API='http://localhost:10003'+base+'/agent';
+var API=base+'/agent';
 var SID=localStorage.getItem('ncolor_id')||('s'+Date.now());
 localStorage.setItem('ncolor_id',SID);
 var busy=false;
