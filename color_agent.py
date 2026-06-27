@@ -670,6 +670,22 @@ async def api_chat(p: dict):
             if cards:
                 ans = ans.rstrip() + "\n\n" + "\n".join(cards)
 
+        # パレット・配色生成後は自動で参考画像を追加
+        if _re.search(r"ランダム|パレット|配色|カラー.*生成|生成.*カラー|色.*出して|出して.*色", pr):
+            # 応答中の色名を抽出してimage検索クエリを構築
+            color_names = _re.findall(r'[ぁ-ん一-龯ァ-ヶ]{2,6}色|コーラル|サーモン|ティール|ラベンダー|ターコイズ|マゼンタ|インディゴ|エメラルド|バーガンディ|チャコール|アイボリー|ベージュ|カーキ|スカーレット|クリムゾン', ans)
+            hex_codes = _re.findall(r'#[0-9A-Fa-f]{6}', ans)
+            if hex_codes or color_names:
+                query_parts = list(dict.fromkeys(color_names[:3]))  # 重複除去
+                if hex_codes:
+                    query_parts.append("color palette")
+                img_query = " ".join(query_parts) + " カラーパレット デザイン インスピレーション" if query_parts else "color palette design inspiration"
+                cards = _img_search(img_query)
+                if not cards:
+                    cards = _img_search("color palette design inspiration aesthetic")
+                if cards:
+                    ans = ans.rstrip() + "\n\n【参考画像】\n" + "\n".join(cards[:6])
+
         if _diagnose_chinese_contamination(ans, f"chat_sid={sid}"):
             ans = _strip_chinese_segments(ans)
             ans = _restyle(ans)
@@ -738,6 +754,20 @@ async def agent_endpoint(p: dict):
 
     ans = _restyle(ans)
     ans = ans.replace("\\n", "\n") if isinstance(ans, str) else ans
+
+    if _re.search(r"ランダム|パレット|配色|カラー.*生成|生成.*カラー|色.*出して|出して.*色", pr):
+        color_names = _re.findall(r'[ぁ-ん一-龯ァ-ヶ]{2,6}色|コーラル|サーモン|ティール|ラベンダー|ターコイズ|マゼンタ|インディゴ|エメラルド|バーガンディ|チャコール|アイボリー|ベージュ|カーキ|スカーレット|クリムゾン', ans)
+        hex_codes = _re.findall(r'#[0-9A-Fa-f]{6}', ans)
+        if hex_codes or color_names:
+            query_parts = list(dict.fromkeys(color_names[:3]))
+            if hex_codes:
+                query_parts.append("color palette")
+            img_query = " ".join(query_parts) + " カラーパレット デザイン インスピレーション" if query_parts else "color palette design inspiration"
+            cards = _img_search(img_query)
+            if not cards:
+                cards = _img_search("color palette design inspiration aesthetic")
+            if cards:
+                ans = ans.rstrip() + "\n\n【参考画像】\n" + "\n".join(cards[:6])
 
     if _diagnose_chinese_contamination(ans, f"agent_sid={sid}"):
         ans = _strip_chinese_segments(ans)
