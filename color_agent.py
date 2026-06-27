@@ -154,14 +154,27 @@ def _now_jst_prompt():
 _NANACHI_WORDS = ["オイラ","だぜ","だな","だよ","なぁ","りょーご"]
 _NANACHI_ENDINGS = ["だぜ","だな","だよ","なぁ"]
 
-def _strip_icall(text: str) -> str:
-    """_icall_ マーカーとその中のJSON断片を除去する"""
-    # _icall_ ... _icall_ ブロック全体を除去
-    text = _re.sub(r'_icall_.*?_icall_', '', text, flags=_re.DOTALL)
-    # 残った単独 _icall_ を除去
+def _normalize_icall(text: str) -> str:
+    """_icall_{JSON}_icall_ を <tool_call>{JSON}</tool_call> に変換して process_reply に渡せる形にする"""
+    def _replace(m):
+        body = m.group(1).strip()
+        # JSON断片かどうか確認
+        try:
+            import json as _j2
+            _j2.loads(body)
+            return f"<tool_call>{body}</tool_call>"
+        except Exception:
+            return ""
+    text = _re.sub(r'_icall_(.*?)_icall_', _replace, text, flags=_re.DOTALL)
+    # 変換されなかった残りの単独 _icall_ を除去
     text = _re.sub(r'_icall_\s*', '', text)
-    # tool_call JSON断片が残っていたら除去
-    text = _re.sub(r'\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^}]*\}\s*\}', '', text, flags=_re.DOTALL)
+    return text
+
+
+def _strip_icall(text: str) -> str:
+    """_icall_ マーカーの残骸を除去する（_normalize_icall 後の最終クリーンアップ用）"""
+    text = _re.sub(r'_icall_\s*', '', text)
+    text = _re.sub(r'<tool_call>.*?</tool_call>', '', text, flags=_re.DOTALL)
     return text.strip()
 
 
@@ -645,6 +658,7 @@ async def api_chat(p: dict):
             ans = ("んなぁ、ちょっと調べるのに失敗したぜ…時間をおいてもう一回聞いてくれ。"
                    "(" + type(e).__name__ + ": " + str(e)[:120] + ")")
 
+        ans = _normalize_icall(ans)
         try:
             ans = _process_reply(ans, _TOOLS_MAP)
         except Exception as _pe:
@@ -747,6 +761,7 @@ async def agent_endpoint(p: dict):
         print("[AGENT ERROR]\n" + _tb.format_exc(), flush=True)
         ans = f"んなぁ、エラーが出たぜ…({type(e).__name__}: {str(e)[:120]})"
 
+    ans = _normalize_icall(ans)
     try:
         ans = _process_reply(ans, _TOOLS_MAP)
     except Exception:
