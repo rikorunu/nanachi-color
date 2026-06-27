@@ -154,27 +154,30 @@ def _now_jst_prompt():
 _NANACHI_WORDS = ["オイラ","だぜ","だな","だよ","なぁ","りょーご"]
 _NANACHI_ENDINGS = ["だぜ","だな","だよ","なぁ"]
 
+_ICALL_BLOCK_RE = _re.compile(r'_ical[a-z_]*_(.*?)_ical[a-z_]*_', _re.DOTALL)
+_ICALL_LONE_RE  = _re.compile(r'_ical[a-z_]*_\s*')
+_JSON_FRAG_RE   = _re.compile(r'\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}\s*\}', _re.DOTALL)
+
+
 def _normalize_icall(text: str) -> str:
-    """_icall_{JSON}_icall_ を <tool_call>{JSON}</tool_call> に変換して process_reply に渡せる形にする"""
+    """_ical*_{JSON}_ical*_ を <tool_call>{JSON}</tool_call> に変換する"""
     def _replace(m):
         body = m.group(1).strip()
-        # JSON断片かどうか確認
         try:
             import json as _j2
             _j2.loads(body)
             return f"<tool_call>{body}</tool_call>"
         except Exception:
-            return ""
-    text = _re.sub(r'_icall_(.*?)_icall_', _replace, text, flags=_re.DOTALL)
-    # 変換されなかった残りの単独 _icall_ を除去
-    text = _re.sub(r'_icall_\s*', '', text)
+            return body  # JSON以外は中身だけ残す
+    text = _ICALL_BLOCK_RE.sub(_replace, text)
+    text = _ICALL_LONE_RE.sub('', text)
     return text
 
 
 def _strip_icall(text: str) -> str:
-    """_icall_ マーカーの残骸を除去する（_normalize_icall 後の最終クリーンアップ用）"""
-    text = _re.sub(r'_icall_\s*', '', text)
-    text = _re.sub(r'<tool_call>.*?</tool_call>', '', text, flags=_re.DOTALL)
+    """最終クリーンアップ: 残った_ical*_マーカーとJSON断片を除去"""
+    text = _ICALL_LONE_RE.sub('', text)
+    text = _JSON_FRAG_RE.sub('', text)
     return text.strip()
 
 
@@ -684,21 +687,13 @@ async def api_chat(p: dict):
             if cards:
                 ans = ans.rstrip() + "\n\n" + "\n".join(cards)
 
-        # パレット・配色生成後は自動で参考画像を追加
-        if _re.search(r"ランダム|パレット|配色|カラー.*生成|生成.*カラー|色.*出して|出して.*色", pr):
-            # 応答中の色名を抽出してimage検索クエリを構築
-            color_names = _re.findall(r'[ぁ-ん一-龯ァ-ヶ]{2,6}色|コーラル|サーモン|ティール|ラベンダー|ターコイズ|マゼンタ|インディゴ|エメラルド|バーガンディ|チャコール|アイボリー|ベージュ|カーキ|スカーレット|クリムゾン', ans)
-            hex_codes = _re.findall(r'#[0-9A-Fa-f]{6}', ans)
-            if hex_codes or color_names:
-                query_parts = list(dict.fromkeys(color_names[:3]))  # 重複除去
-                if hex_codes:
-                    query_parts.append("color palette")
-                img_query = " ".join(query_parts) + " カラーパレット デザイン インスピレーション" if query_parts else "color palette design inspiration"
-                cards = _img_search(img_query)
-                if not cards:
-                    cards = _img_search("color palette design inspiration aesthetic")
-                if cards:
-                    ans = ans.rstrip() + "\n\n【参考画像】\n" + "\n".join(cards[:6])
+        # パレット・配色生成後は自動で参考画像を追加（ユーザーの質問で判定）
+        if _re.search(r"ランダム|パレット|配色|カラー.*生成|生成.*カラー|色.*出して|出して.*色|色.*提案|提案.*色", pr):
+            cards = _img_search("カラーパレット デザイン インスピレーション")
+            if not cards:
+                cards = _img_search("color palette design inspiration aesthetic")
+            if cards:
+                ans = ans.rstrip() + "\n\n【参考画像】\n" + "\n".join(cards[:6])
 
         if _diagnose_chinese_contamination(ans, f"chat_sid={sid}"):
             ans = _strip_chinese_segments(ans)
@@ -770,19 +765,12 @@ async def agent_endpoint(p: dict):
     ans = _restyle(ans)
     ans = ans.replace("\\n", "\n") if isinstance(ans, str) else ans
 
-    if _re.search(r"ランダム|パレット|配色|カラー.*生成|生成.*カラー|色.*出して|出して.*色", pr):
-        color_names = _re.findall(r'[ぁ-ん一-龯ァ-ヶ]{2,6}色|コーラル|サーモン|ティール|ラベンダー|ターコイズ|マゼンタ|インディゴ|エメラルド|バーガンディ|チャコール|アイボリー|ベージュ|カーキ|スカーレット|クリムゾン', ans)
-        hex_codes = _re.findall(r'#[0-9A-Fa-f]{6}', ans)
-        if hex_codes or color_names:
-            query_parts = list(dict.fromkeys(color_names[:3]))
-            if hex_codes:
-                query_parts.append("color palette")
-            img_query = " ".join(query_parts) + " カラーパレット デザイン インスピレーション" if query_parts else "color palette design inspiration"
-            cards = _img_search(img_query)
-            if not cards:
-                cards = _img_search("color palette design inspiration aesthetic")
-            if cards:
-                ans = ans.rstrip() + "\n\n【参考画像】\n" + "\n".join(cards[:6])
+    if _re.search(r"ランダム|パレット|配色|カラー.*生成|生成.*カラー|色.*出して|出して.*色|色.*提案|提案.*色", pr):
+        cards = _img_search("カラーパレット デザイン インスピレーション")
+        if not cards:
+            cards = _img_search("color palette design inspiration aesthetic")
+        if cards:
+            ans = ans.rstrip() + "\n\n【参考画像】\n" + "\n".join(cards[:6])
 
     if _diagnose_chinese_contamination(ans, f"agent_sid={sid}"):
         ans = _strip_chinese_segments(ans)
