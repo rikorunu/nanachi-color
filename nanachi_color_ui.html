@@ -38,11 +38,51 @@ body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex
 </style>
 </head>
 <body>
-<div id="hd">🎨 ナナチカラー<small>配色 / 補色 / パレット / コントラスト</small></div>
+<div id="hd">🎨 ナナチカラー<small>配色 / 補色 / パレット / コントラスト</small><button onclick="showFabricPanel()" style="background:#3a1a6e;color:#c8c8ff;border:1px solid #7c3aed;border-radius:16px;padding:5px 13px;cursor:pointer;font-size:.78em;margin-left:10px;vertical-align:middle;">📦 在庫</button></div>
+<div id="fabric-panel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:100;overflow-y:auto;padding:20px;">
+  <div style="background:#1e1a3e;border-radius:12px;padding:20px;max-width:500px;margin:0 auto;">
+    <h2 style="color:#c792ea;margin-bottom:16px;">📦 布生地在庫</h2>
+
+    <!-- 登録フォーム -->
+    <div style="margin-bottom:20px;border:1px solid #2e1a5e;border-radius:8px;padding:16px;">
+      <h3 style="color:#9988cc;margin-bottom:12px;">✨ 新規登録</h3>
+
+      <input type="file" id="fabric-file" accept="image/*" capture="environment" style="display:none" onchange="previewFabric(this)">
+      <button onclick="document.getElementById('fabric-file').click()" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;width:100%;margin-bottom:8px;font-size:.95em;">
+        📷 写真を撮る / 選ぶ
+      </button>
+
+      <div id="fabric-preview" style="display:none;text-align:center;margin-bottom:8px;">
+        <img id="fabric-preview-img" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #2e1a5e;">
+      </div>
+
+      <input type="text" id="fabric-name" placeholder="布生地名（例: 赤いコットン）" style="width:100%;background:#1a1a3e;border:1px solid #4c1d95;border-radius:8px;padding:8px 12px;color:#e0e0ff;margin-bottom:8px;box-sizing:border-box;font-size:.95em;">
+      <input type="text" id="fabric-memo" placeholder="メモ（任意: 素材、購入先など）" style="width:100%;background:#1a1a3e;border:1px solid #4c1d95;border-radius:8px;padding:8px 12px;color:#e0e0ff;margin-bottom:8px;box-sizing:border-box;font-size:.95em;">
+
+      <button onclick="registerFabric()" id="register-btn" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;cursor:pointer;width:100%;font-size:.95em;">
+        ✅ 登録する
+      </button>
+      <div id="register-result" style="color:#9aef9a;font-size:.85em;margin-top:8px;"></div>
+    </div>
+
+    <!-- 在庫一覧 -->
+    <div>
+      <h3 style="color:#9988cc;margin-bottom:12px;">📋 在庫一覧</h3>
+      <div id="fabric-list" style="display:flex;flex-direction:column;gap:8px;">
+        読み込み中...
+      </div>
+    </div>
+
+    <button onclick="hideFabricPanel()" style="background:#3a2a5e;color:#c8c8ff;border:none;border-radius:8px;padding:10px;cursor:pointer;width:100%;margin-top:16px;font-size:.95em;">
+      閉じる
+    </button>
+  </div>
+</div>
 <div id="chat"></div>
 <div id="quick">
   <button class="qbtn" onclick="quickSend('ランダムな配色を5色生成してくれ')">🎲 ランダム配色</button>
   <button class="qbtn" onclick="quickComplement()">🔵 補色提案</button>
+  <button class="qbtn" onclick="sendPrompt('在庫の布生地を教えてくれ')">📦 在庫確認</button>
 </div>
 <div id="ft">
 <input id="inp" type="text" placeholder="何でも聞いてくれだよ..." autocomplete="off">
@@ -172,6 +212,109 @@ function quickComplement(){
 document.getElementById('inp').addEventListener('keydown',function(e){
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}
 });
+
+function showFabricPanel(){
+  document.getElementById('fabric-panel').style.display='block';
+  loadFabricList();
+}
+
+function hideFabricPanel(){
+  document.getElementById('fabric-panel').style.display='none';
+}
+
+function previewFabric(input){
+  if(input.files&&input.files[0]){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      document.getElementById('fabric-preview-img').src=e.target.result;
+      document.getElementById('fabric-preview').style.display='block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function registerFabric(){
+  var fileInput=document.getElementById('fabric-file');
+  var name=document.getElementById('fabric-name').value.trim();
+  var memo=document.getElementById('fabric-memo').value.trim();
+  var resultDiv=document.getElementById('register-result');
+
+  if(!fileInput.files||!fileInput.files[0]){
+    resultDiv.style.color='#ef9a9a';
+    resultDiv.textContent='写真を選んでくれ';
+    return;
+  }
+
+  var formData=new FormData();
+  formData.append('file',fileInput.files[0]);
+  formData.append('fabric_name',name||'布生地');
+  formData.append('memo',memo);
+
+  document.getElementById('register-btn').disabled=true;
+  resultDiv.textContent='登録中...';
+  resultDiv.style.color='#9988cc';
+
+  fetch('/upload_fabric',{method:'POST',body:formData})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.error){
+      resultDiv.style.color='#ef9a9a';
+      resultDiv.textContent='エラー: '+d.error;
+    }else{
+      resultDiv.style.color='#9aef9a';
+      resultDiv.textContent=d.message||'登録完了';
+      fileInput.value='';
+      document.getElementById('fabric-name').value='';
+      document.getElementById('fabric-memo').value='';
+      document.getElementById('fabric-preview').style.display='none';
+      loadFabricList();
+      sendPrompt('布生地「'+(d.name||'布生地')+'」を登録したぜ。抽出色を教えてくれ');
+    }
+  })
+  .catch(function(e){
+    resultDiv.style.color='#ef9a9a';
+    resultDiv.textContent='エラー: '+e.message;
+  })
+  .finally(function(){
+    document.getElementById('register-btn').disabled=false;
+  });
+}
+
+function loadFabricList(){
+  fetch('/fabric_list')
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var listDiv=document.getElementById('fabric-list');
+    var fabrics=d.fabrics||[];
+    if(fabrics.length===0){
+      listDiv.innerHTML='<p style="color:#8888aa;font-size:.85em;">まだ登録されていないぜ。写真を撮って登録してくれ。</p>';
+      return;
+    }
+    listDiv.innerHTML=fabrics.map(function(f){
+      var colors=f.colors||[];
+      var swatches=colors.map(function(c){
+        return '<span style="display:inline-block;width:20px;height:20px;background:'+c.hex+';border-radius:3px;border:1px solid #555;margin-right:2px;" title="'+c.name_jp+'"></span>';
+      }).join('');
+      return '<div style="background:#12082a;border:1px solid #2e1a5e;border-radius:8px;padding:10px;display:flex;align-items:center;gap:10px;">'
+        +(f.image_b64?'<img src="data:image/jpeg;base64,'+f.image_b64+'" style="width:60px;height:60px;object-fit:cover;border-radius:6px;">':'')
+        +'<div style="flex:1;min-width:0;">'
+        +'<div style="color:#c792ea;font-weight:600;">'+f.name+'</div>'
+        +'<div style="margin:4px 0;">'+swatches+'</div>'
+        +(f.memo?'<div style="color:#8888aa;font-size:.75em;">'+f.memo+'</div>':'')
+        +'</div>'
+        +'<button onclick="askMatchFabric('+f.id+',\''+f.name+'\')" style="background:#2e1a5e;color:#c8c8ff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:.8em;white-space:nowrap;">配色提案</button>'
+        +'</div>';
+    }).join('');
+  })
+  .catch(function(){
+    document.getElementById('fabric-list').innerHTML='<p style="color:#ef9a9a;font-size:.85em;">一覧取得エラー</p>';
+  });
+}
+
+function askMatchFabric(fabricId,fabricName){
+  hideFabricPanel();
+  sendPrompt('在庫の「'+fabricName+'」(ID:'+fabricId+')に合う配色を在庫の布から提案してくれ');
+}
 
 addMsg('a','んなぁ～、りょーご！\nカラーAIだぜ。配色・補色・パレット生成、何でも来いだよ。\nHEXコード（例: #FF5733）や色名（桜色・コーラルなど）で聞いてくれな。');
 </script>

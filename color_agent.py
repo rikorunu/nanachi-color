@@ -558,6 +558,14 @@ try:
 except Exception as _ct_e:
     import logging; logging.getLogger("nanachi_color").warning(f"[color_tools] disabled: {_ct_e}")
 
+# 布生地在庫ツールを _TOOLS_MAP に追加
+try:
+    from fabric_inventory import tool_list_fabrics, tool_match_fabrics_by_color
+    _TOOLS_MAP["list_fabrics"] = lambda **kw: tool_list_fabrics()
+    _TOOLS_MAP["match_fabrics_by_color"] = lambda hex_color="", top_k=3, **kw: tool_match_fabrics_by_color(hex_color, top_k)
+except Exception as _fi_e:
+    import logging; logging.getLogger("nanachi_color").warning(f"[fabric_inventory] disabled: {_fi_e}")
+
 
 # ===== LLM初期化 =====
 LLM_BACKEND = os.getenv("LLM_BACKEND", "ollama")
@@ -780,6 +788,74 @@ async def agent_endpoint(p: dict):
     _save_history(sid, "assistant", ans)
 
     return JSONResponse({"answer": ans, "reply": ans, "session_id": sid})
+
+
+# ===== 布生地画像アップロード・色抽出 =====
+from fastapi import UploadFile, File, Form
+
+
+@app.post("/upload_fabric")
+async def upload_fabric(
+    file: UploadFile = File(...),
+    fabric_name: str = Form(default=""),
+    memo: str = Form(default=""),
+):
+    """布生地画像をアップロードして色を抽出、在庫DBに登録"""
+    image_bytes = await file.read()
+    try:
+        from fabric_color_extractor import extract_dominant_colors
+        colors = extract_dominant_colors(image_bytes, n_colors=5)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    # 在庫DBに登録（fabric_inventory.pyのFabricInventoryを使う）
+    try:
+        from fabric_inventory import FabricInventory
+        inv = FabricInventory()
+        fabric_id = inv.add_fabric(
+            name=fabric_name or "布生地",
+            image_bytes=image_bytes,
+            colors=colors,
+            memo=memo,
+        )
+        return JSONResponse({
+            "fabric_id": fabric_id,
+            "name": fabric_name or "布生地",
+            "colors": colors,
+            "message": f"「{fabric_name or '布生地'}」を在庫に登録したぜ",
+        })
+    except Exception as e:
+        # DB登録失敗でも色抽出結果は返す
+        return JSONResponse({
+            "fabric_id": None,
+            "colors": colors,
+            "message": "色抽出OK（在庫登録は失敗: " + str(e) + "）",
+        })
+
+
+# ===== 布生地在庫一覧API（UIから呼ばれる）=====
+@app.get("/fabric_list")
+async def fabric_list():
+    try:
+        from fabric_inventory import FabricInventory
+        inv = FabricInventory()
+        fabrics = inv.list_fabrics()
+        # image_b64はサムネ用に含める
+        result = []
+        for f in fabrics:
+            import json as _fj
+            colors = _fj.loads(f.get("colors_json", "[]"))
+            result.append({
+                "id": f["id"],
+                "name": f["name"],
+                "memo": f.get("memo", ""),
+                "colors": [{"hex": c.get("hex",""), "name_jp": c.get("name_jp",""), "ratio": c.get("ratio",0)} for c in colors[:5]],
+                "image_b64": f.get("image_b64", ""),
+                "created_at": f.get("created_at", ""),
+            })
+        return JSONResponse({"fabrics": result})
+    except Exception as e:
+        return JSONResponse({"fabrics": [], "error": str(e)})
 
 
 # ===== ルート =====
