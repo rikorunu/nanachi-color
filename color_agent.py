@@ -658,7 +658,17 @@ async def api_chat(p: dict):
     async def _compute_answer():
         h = _load_history(sid)
         _sys_with_now = _now_jst_prompt() + SYSTEM_PROMPT
-        msgs = [{"role": "system", "content": _sys_with_now}] + h + [{"role": "user", "content": pr}]
+
+        # 在庫キーワード検出 → 在庫情報をシステムプロンプトに自動注入
+        _fabric_inject = ""
+        if _re.search(r"在庫|持っている布|手持ちの布|登録した布|布生地.*合う|合う.*布", pr):
+            try:
+                from fabric_inventory import tool_list_fabrics
+                _fabric_inject = "\n\n【現在の布生地在庫（システム自動取得）】\n" + tool_list_fabrics()
+            except Exception:
+                pass
+
+        msgs = [{"role": "system", "content": _sys_with_now + _fabric_inject}] + h + [{"role": "user", "content": pr}]
 
         import traceback as _tb
         try:
