@@ -505,6 +505,72 @@ def color_rag_search(query: str, top_k: int = 3) -> str:
 
 TOOL_CALL_PATTERN = re.compile(r'<tool_call>\s*(\{.*?\})\s*</tool_call>', re.DOTALL)
 
+# ============================================================
+# 2026-06-30 追加: 在庫生地同士の色味組み合わせ提案ツール (f-string回避版)
+# ============================================================
+SUGGEST_COMBINATIONS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "suggest_combinations",
+        "description": "在庫の生地から2枚を選んで色味の組み合わせを提案する。色相環ベースで類似色・補色・トライアド・ニュートラル調和を判定し、スコア上位を返す。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "top_n": {
+                    "type": "integer",
+                    "description": "返すペア数 (デフォルト5)",
+                    "default": 5
+                }
+            },
+            "required": []
+        }
+    }
+}
+
+
+def handle_suggest_combinations(args):
+    """suggest_combinations ツール呼出ハンドラ"""
+    from fabric_matching import suggest_combinations
+    if isinstance(args, dict):
+        top_n = args.get("top_n", 5)
+    else:
+        top_n = 5
+    result = suggest_combinations(top_n=top_n)
+
+    pairs = result.get("pairs", [])
+    if not pairs:
+        return {"text": "んなぁ～、在庫の組み合わせ候補が出せなかったぜ。在庫2件以上必要だ。"}
+
+    header = "オイラ流・在庫生地の組み合わせ提案 (" + str(len(pairs)) + "ペア):"
+    lines = [header, ""]
+
+    for i, p in enumerate(pairs, 1):
+        bm = p["best_match"]
+        c1 = bm["color1"]
+        c2 = bm["color2"]
+        f1_disp = p["fabric1"]["display"]
+        f2_disp = p["fabric2"]["display"]
+        score_str = str(bm["score"])
+        ptype = bm["type"]
+        reason = bm["reason"]
+
+        sep = "=== #" + str(i) + " スコア " + score_str + "点 (" + ptype + ") ==="
+        line1 = "  ・" + f1_disp + " の " + c1.get("name_jp", "") + " (" + c1.get("hex", "") + ")"
+        line2 = "  ・" + f2_disp + " の " + c2.get("name_jp", "") + " (" + c2.get("hex", "") + ")"
+        line3 = "  -> " + reason
+
+        lines.append(sep)
+        lines.append(line1)
+        lines.append(line2)
+        lines.append(line3)
+        lines.append("")
+
+    return {
+        "text": "\n".join(lines),
+        "pairs_data": pairs,
+    }
+
+
 TOOLS_MAP_DEFAULT: Dict[str, Any] = {
     "color_random_palette":  color_random_palette,
     "color_harmonize":       color_harmonize,
@@ -513,6 +579,7 @@ TOOLS_MAP_DEFAULT: Dict[str, Any] = {
     "color_blend":           color_blend,
     "color_contrast_check":  color_contrast_check,
     "color_rag_search":      color_rag_search,
+    'suggest_combinations': handle_suggest_combinations,
 }
 
 

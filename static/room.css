@@ -1,0 +1,524 @@
+/* ===== Reset ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #0a0612;
+  font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+  color: #f0e6d2;
+}
+
+/* ===== 部屋背景 ===== */
+.room-bg {
+  position: fixed; inset: 0;
+  background-image: url("/ui/assets/bg/room_bg.jpg");
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  animation: bgBreathe 12s ease-in-out infinite;
+  transition: background-image 0.6s ease, opacity 0.4s ease;
+}
+@keyframes bgBreathe {
+  0%, 100% { filter: brightness(1.0) saturate(1.0); transform: scale(1.0); }
+  50%      { filter: brightness(1.08) saturate(1.1); transform: scale(1.015); }
+}
+
+/* ===== 暖炉の揺らぎ光 ===== */
+.fireplace-glow {
+  position: fixed;
+  right: 0; bottom: 0;
+  width: 60%; height: 70%;
+  background: radial-gradient(ellipse at 75% 75%,
+    rgba(255, 140, 50, 0.35) 0%,
+    rgba(255, 100, 30, 0.18) 25%,
+    transparent 60%);
+  z-index: 1;
+  pointer-events: none;
+  animation: fireFlicker 3s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+@keyframes fireFlicker {
+  0%, 100% { opacity: 0.9; }
+  20%      { opacity: 1.0; }
+  40%      { opacity: 0.75; }
+  60%      { opacity: 0.95; }
+  80%      { opacity: 0.82; }
+}
+
+/* ===== 蛍 / 火の粉 パーティクル ===== */
+.particles {
+  position: fixed; inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.particle {
+  position: absolute;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd97a 0%, rgba(255,217,122,0.4) 60%, transparent 100%);
+  box-shadow: 0 0 8px rgba(255, 217, 122, 0.8);
+  animation: floatUp linear infinite;
+}
+@keyframes floatUp {
+  0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate(var(--dx, 30px), -110vh) scale(1.2); opacity: 0; }
+}
+
+/* ===== ナナチ本体（中央配置・チャット折畳前提） ===== */
+.nanachi-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
+  width: 36%;
+  max-width: 560px;
+  min-width: 280px;
+  z-index: 10;
+  cursor: pointer;
+  animation: nanachiBreathe 4s ease-in-out infinite;
+  pointer-events: auto;
+  transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* チャット展開中はナナチを右にずらす */
+body.chat-open .nanachi-wrap {
+  left: calc(420px + (100vw - 420px) / 2);
+}
+@keyframes nanachiBreathe {
+  0%, 100% { transform: translateX(-50%) translateY(0px); }
+  50%      { transform: translateX(-50%) translateY(-6px); }
+}
+
+/* ===== 表情画像スタック ===== */
+.nanachi-stack {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+}
+.nanachi-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,0.6))
+          drop-shadow(0 0 18px rgba(255, 180, 80, 0.25));
+  opacity: 0;
+  transition: opacity 0.45s ease, filter 0.4s ease;
+  will-change: opacity, transform;
+}
+.nanachi-face.active { opacity: 1; }
+.nanachi-wrap:hover .nanachi-face.active {
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,0.7))
+          drop-shadow(0 0 28px rgba(255, 200, 100, 0.55));
+}
+.nanachi-face.blink {
+  animation: blinkOnce 0.18s ease-in-out;
+}
+@keyframes blinkOnce {
+  0%, 100% { transform: scaleY(1); }
+  50%      { transform: scaleY(0.92); filter: brightness(0.95); }
+}
+
+.nanachi-shadow {
+  position: absolute;
+  left: 10%; right: 10%;
+  bottom: -20px;
+  height: 30px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.45) 0%, transparent 70%);
+  z-index: -1;
+}
+
+/* ===== 台詞バブル ===== */
+.speech-bubble {
+  position: fixed;
+  left: 50%;
+  top: 12%;
+  transform: translateX(-50%);
+  max-width: 460px;
+  background: linear-gradient(135deg, rgba(40, 28, 20, 0.92), rgba(60, 40, 25, 0.92));
+  border: 1.5px solid #c9a961;
+  border-radius: 18px;
+  padding: 14px 22px;
+  font-size: 1.05em;
+  line-height: 1.55;
+  color: #f5e9c8;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5),
+              0 0 22px rgba(201, 169, 97, 0.25),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  z-index: 15;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease, transform 0.5s ease, left 0.5s ease;
+}
+body.chat-open .speech-bubble {
+  left: calc(420px + (100vw - 420px) / 2);
+}
+.speech-bubble.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.speech-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  left: 50%; transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: #c9a961;
+}
+
+/* ===== チャット起動アイコン（左端常駐・常時表示） ===== */
+.chat-launcher {
+  position: fixed;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 56px;
+  height: 96px;
+  background: linear-gradient(135deg, rgba(60, 40, 20, 0.92), rgba(38, 24, 14, 0.92));
+  border: 2px solid #c9a961;
+  border-radius: 12px;
+  z-index: 18;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  color: #f0d68a;
+  font-size: 1.5em;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5),
+              0 0 16px rgba(201, 169, 97, 0.3);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.4s ease;
+  user-select: none;
+}
+.chat-launcher:hover {
+  transform: translateY(-50%) translateX(4px) scale(1.05);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6),
+              0 0 24px rgba(201, 169, 97, 0.55);
+}
+.chat-launcher .launcher-icon { font-size: 1.4em; line-height: 1; }
+.chat-launcher .launcher-label {
+  font-size: 0.5em;
+  letter-spacing: 0.1em;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  opacity: 0.85;
+}
+/* チャット展開中はランチャーを隠す */
+body.chat-open .chat-launcher {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ===== チャットパネル（左サイドバー・スライドイン/アウト） ===== */
+.chat-panel {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: 420px;
+  max-width: 92vw;
+  background: linear-gradient(160deg, rgba(20, 14, 10, 0.96), rgba(38, 24, 14, 0.96));
+  border-right: 1.5px solid #8b6f3a;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.5),
+              0 0 24px rgba(201, 169, 97, 0.12);
+  z-index: 20;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  transform: translateX(-100%);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body.chat-open .chat-panel {
+  transform: translateX(0);
+}
+
+.chat-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(80, 50, 25, 0.6), rgba(50, 32, 18, 0.6));
+  border-bottom: 1px solid #6b5028;
+  user-select: none;
+  flex-shrink: 0;
+}
+.chat-title { font-weight: 600; color: #f0d68a; letter-spacing: 0.05em; font-size: 1.02em; }
+.chat-close {
+  background: transparent; border: none;
+  color: #c9a961; font-size: 1.4em; cursor: pointer;
+  padding: 8px 12px;
+  min-width: 44px; min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  transition: transform 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.chat-close:hover { color: #ffd97a; transform: scale(1.15); }
+
+.chat-body {
+  display: flex; flex-direction: column;
+  flex: 1; min-height: 0;
+  padding: 14px;
+  gap: 10px;
+}
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 8px;
+  font-size: 0.93em;
+  line-height: 1.6;
+  scrollbar-width: thin;
+  scrollbar-color: #6b5028 transparent;
+}
+.chat-log::-webkit-scrollbar { width: 8px; }
+.chat-log::-webkit-scrollbar-thumb { background: #6b5028; border-radius: 4px; }
+.chat-log .msg-user, .chat-log .msg-nanachi {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  word-wrap: break-word;
+}
+.chat-log .msg-user {
+  color: #9fd6ff;
+  background: rgba(70, 100, 140, 0.18);
+  border-left: 3px solid #5a8ec9;
+}
+.chat-log .msg-nanachi {
+  color: #f5d97a;
+  background: rgba(140, 100, 50, 0.18);
+  border-left: 3px solid #c9a961;
+}
+.chat-log .msg-user::before    { content: "りょーご "; opacity: 0.65; font-size: 0.85em; }
+.chat-log .msg-nanachi::before { content: "🐰 ナナチ "; opacity: 0.65; font-size: 0.85em; }
+.chat-input-row {
+  display: flex; gap: 6px;
+  flex-shrink: 0;
+}
+.chat-input-row input {
+  flex: 1; padding: 11px 12px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid #6b5028;
+  border-radius: 8px;
+  color: #f0e6d2;
+  font-size: 0.96em;
+  outline: none;
+}
+.chat-input-row input:focus { border-color: #c9a961; box-shadow: 0 0 8px rgba(201,169,97,0.3); }
+.chat-input-row button {
+  padding: 11px 14px;
+  background: linear-gradient(180deg, #c9a961, #9a7b3a);
+  border: none; border-radius: 8px;
+  color: #1a120a; font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, filter 0.15s;
+  white-space: nowrap;
+}
+.chat-input-row button:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.chat-input-row button:active { transform: translateY(0); }
+.chat-status {
+  font-size: 0.82em; opacity: 0.65;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ===== ホットスポット ===== */
+.hotspot {
+  position: fixed;
+  z-index: 5;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.3s, left 0.5s ease, right 0.5s ease;
+}
+.hotspot:hover { background: rgba(255, 217, 122, 0.10); }
+.hotspot-window     { left: 6%;  top: 14%; width: 22%; height: 38%; }
+.hotspot-fireplace  { right: 4%; bottom: 18%; width: 22%; height: 38%; }
+.hotspot-bookshelf  { left: 36%; top: 18%; width: 22%; height: 32%; }
+body.chat-open .hotspot-window    { left: calc(420px + 2%); }
+body.chat-open .hotspot-bookshelf { left: calc(420px + 26%); }
+
+/* ===== レスポンシブ ===== */
+@media (max-width: 900px) {
+  .chat-panel { width: 100vw; }
+  body.chat-open .nanachi-wrap, body.chat-open .speech-bubble {
+    left: 50%;
+  }
+  .nanachi-wrap { width: 60%; }
+  .hotspot-window, .hotspot-bookshelf, .hotspot-fireplace { display: none; }
+}
+
+/* ===== iPhone セーフエリア対応 ===== */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .chat-panel {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .chat-body {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ===== モード別背景トランジション ===== */
+.room-bg.mode-transition {
+  opacity: 0;
+}
+
+/* ===== ナナチキャラ 画像トランジション ===== */
+.nanachi-face {
+  transition: opacity 0.4s ease;
+}
+.nanachi-face.mode-fade {
+  opacity: 0;
+}
+
+
+/* ===== v14.3: モード切替モーション ===== */
+.nanachi-face, .nanachi-char img, #nanachi-character, img.nanachi-portrait {
+  transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+  will-change: transform, opacity;
+}
+
+/* 背景フェード強化 */
+.room-bg {
+  transition: background-image 0.6s ease, opacity 0.4s ease !important;
+}
+
+/* スマホでチャット閉じれない問題の追加対策 */
+@media (max-width: 768px) {
+  .chat-panel {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .chat-close, button[data-close], .chat-header .close-btn {
+    min-width: 48px !important;
+    min-height: 48px !important;
+    padding: 12px !important;
+    z-index: 9999 !important;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ===== IMGCARD サムネカード ===== */
+.imgcard {
+    display: inline-block;
+    width: 140px;
+    margin: 8px 6px 4px 0;
+    padding: 4px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    text-decoration: none;
+    color: inherit;
+    vertical-align: top;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.imgcard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    border-color: rgba(255,200,100,0.5);
+}
+.imgcard img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+    display: block;
+}
+.imgcard-caption {
+    font-size: 11px;
+    line-height: 1.3;
+    margin-top: 4px;
+    padding: 2px 4px;
+    color: rgba(255,255,255,0.85);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* ===== カラーAI機能ボタン ===== */
+.color-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+}
+.color-btn {
+    flex: 1 1 auto;
+    min-width: 90px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+    color: #f4e8d0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.color-btn:hover {
+    background: linear-gradient(180deg, rgba(255,200,100,0.2), rgba(255,150,80,0.1));
+    border-color: rgba(255,200,100,0.6);
+    transform: translateY(-1px);
+}
+.color-btn:active {
+    transform: translateY(0);
+}
+.color-btn-icon {
+    font-size: 14px;
+    margin-right: 4px;
+}
+
+/* ===== ファイルアップロード入力(隠し) ===== */
+.color-file-input {
+    display: none;
+}
+
+/* Lightbox */
+.lightbox-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.92); z-index:9999; display:flex; justify-content:center; align-items:center; opacity:0; transition:opacity 0.2s; cursor:zoom-out; }
+.lightbox-overlay.lightbox-open { opacity:1; }
+.lightbox-container { position:relative; max-width:92vw; max-height:92vh; display:flex; flex-direction:column; align-items:center; cursor:default; }
+.lightbox-image { max-width:92vw; max-height:80vh; object-fit:contain; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.5); }
+.lightbox-caption { margin-top:12px; padding:8px 16px; color:#f4e8d0; font-size:14px; text-align:center; background:rgba(0,0,0,0.6); border-radius:6px; }
+.lightbox-link { display:inline-block; margin-top:8px; padding:6px 12px; color:#ffe0a0; text-decoration:none; border:1px solid rgba(255,200,100,0.4); border-radius:4px; }
+.lightbox-link:hover { background:rgba(255,200,100,0.2); }
+.lightbox-close { position:absolute; top:-45px; right:0; width:36px; height:36px; background:rgba(255,255,255,0.15); border-radius:50%; color:#fff; font-size:20px; display:flex; justify-content:center; align-items:center; cursor:pointer; }
+.lightbox-close:hover { background:rgba(255,100,100,0.6); }
+
+/* フローティングボタンバー */
+.color-actions-floating { position:fixed; bottom:0; left:0; right:0; z-index:100; display:flex; gap:4px; padding:8px 6px; background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.85)); backdrop-filter:blur(8px); border-top:1px solid rgba(255,255,255,0.1); pointer-events:none; }
+.color-actions-floating .color-btn { pointer-events:auto; flex:1 1 0; min-width:0; padding:10px 4px; font-size:11px; white-space:nowrap; text-align:center; }
+.color-actions-floating .color-btn-icon { display:block; font-size:18px; margin:0 0 2px 0; }
+@media (min-width:600px) { .color-actions-floating .color-btn { font-size:13px; padding:10px 8px; } }
+body { padding-bottom:72px !important; }
+
+/* 在庫パネル */
+.fabric-panel { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(20,20,30,0.95); z-index:9000; display:flex; flex-direction:column; }
+.fabric-panel-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(0,0,0,0.5); border-bottom:1px solid rgba(255,255,255,0.1); }
+.fabric-panel-header h2 { margin:0; color:#f4e8d0; font-size:18px; }
+.fabric-panel-close { background:rgba(255,255,255,0.1); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:18px; }
+.fabric-panel-close:hover { background:rgba(255,100,100,0.6); }
+.fabric-panel-body { flex:1; overflow-y:auto; padding:16px; }
+.fabric-loading, .fabric-empty { color:#f4e8d0; text-align:center; padding:40px 20px; }
+.fabric-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; }
+
+.fabric-card { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:8px; transition:transform 0.15s; }
+.fabric-card:hover { transform:translateY(-2px); border-color:rgba(255,200,100,0.4); }
+.fabric-card-img { width:100%; height:140px; object-fit:cover; border-radius:4px; cursor:zoom-in; }
+.fabric-card-name { color:#f4e8d0; font-size:13px; margin:8px 0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fabric-swatch-row { display:flex; flex-wrap:wrap; gap:3px; margin-top:6px; }
+.fabric-swatch { position:relative; width:36px; height:36px; border-radius:4px; border:1px solid rgba(255,255,255,0.2); cursor:pointer; transition:transform 0.1s; }
+.fabric-swatch:hover { transform:scale(1.15); z-index:2; }
+.fabric-swatch.copied { box-shadow:0 0 0 2px #5f5; }
+.fabric-swatch-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#ccc; white-space:nowrap; opacity:0; transition:opacity 0.15s; }
+.fabric-swatch:hover .fabric-swatch-label { opacity:1; }
+
+/* SWATCH チップ */
+.swatch-chip { position:relative; display:inline-block; width:32px; height:32px; border-radius:6px; border:1px solid rgba(255,255,255,0.25); cursor:pointer; margin:3px 4px 3px 0; vertical-align:middle; transition:transform 0.1s; }
+.swatch-chip:hover { transform:scale(1.2); z-index:2; }
+.swatch-chip.copied { box-shadow:0 0 0 2px #5f5; }
+.swatch-chip-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:9px; color:#ccc; white-space:nowrap; opacity:0; transition:opacity 0.15s; pointer-events:none; }
+.swatch-chip:hover .swatch-chip-label { opacity:1; }

@@ -4,6 +4,7 @@ sys.path.insert(0, '/home/arc_e')
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, Query
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response, HTMLResponse, StreamingResponse, JSONResponse, RedirectResponse
 import json as _json, os, math, re as _re, sqlite3, asyncio
 os.environ.setdefault("OLLAMA_KEEP_ALIVE", "60m")
@@ -32,6 +33,8 @@ except Exception as _cth_err:
 
 app = FastAPI(title="Nanachi Color AI Agent v1")
 
+
+app.mount("/ui", StaticFiles(directory="static", html=True), name="static")
 # ===== CORS設定（ブラウザfetch対応）=====
 app.add_middleware(
     CORSMiddleware,
@@ -868,15 +871,71 @@ async def fabric_list():
         return JSONResponse({"fabrics": [], "error": str(e)})
 
 
+@app.put("/update_fabric/{fabric_id}")
+async def update_fabric(fabric_id: int, payload: dict):
+    from fabric_inventory import FabricInventory
+    new_name = payload.get("name", "").strip()
+    new_memo = payload.get("memo", "").strip()
+    if not new_name:
+        return {"ok": False, "error": "名前は必須だぜ"}
+    inv = FabricInventory()
+    try:
+        inv.update_fabric(fabric_id, new_name, new_memo)
+        return {"ok": True, "id": fabric_id, "name": new_name}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.delete("/delete_fabric/{fabric_id}")
+async def delete_fabric(fabric_id: int):
+    try:
+        from fabric_inventory import FabricInventory
+        inv = FabricInventory()
+        ok = inv.delete_fabric(fabric_id)
+        if ok:
+            return JSONResponse({"ok": True})
+        return JSONResponse({"ok": False, "error": "IDが見つからないぜ"}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 # ===== ルート =====
 @app.get("/")
 async def _root():
     ui_path = Path("/home/arc_e/nanachi-color/nanachi_color_ui.html")
     if ui_path.exists():
-        return HTMLResponse(content=ui_path.read_text(encoding="utf-8"))
+        return HTMLResponse(
+            content=ui_path.read_text(encoding="utf-8"),
+            headers={"Cache-Control": "no-store"},
+        )
     return {"service": "Nanachi Color AI", "port": 10003, "status": "ok"}
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("color_agent:app", host="0.0.0.0", port=10003, reload=False)
+
+
+# ============================================================
+# 2026-06-30 追加: 在庫色組み合わせ提案エンドポイント (UI直叩き用)
+# ============================================================
+from pydantic import BaseModel
+
+class SuggestCombinationsRequest(BaseModel):
+    top_n: int = 5
+
+@app.post("/suggest_combinations")
+async def suggest_combinations_endpoint(req: SuggestCombinationsRequest):
+    """在庫生地の色組み合わせ提案 (LLM経由せず直接呼ぶ)"""
+    try:
+        from color_tool_handler import handle_suggest_combinations
+        result = handle_suggest_combinations({"top_n": req.top_n})
+        return result
+    except Exception as e:
+        import traceback
+        return {
+            "text": "エラー: " + type(e).__name__ + ": " + str(e),
+            "pairs_data": [],
+            "traceback": traceback.format_exc()
+        }
+

@@ -119,12 +119,13 @@ class FabricInventory:
             return cur.lastrowid
 
     def list_fabrics(self) -> List[dict]:
-        """全布生地一覧を返す（image_b64は除く）"""
+        """布生地一覧を取得（image_b64含む）"""
         with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT id, name, memo, colors_json, created_at, updated_at FROM fabrics ORDER BY id"
-            ).fetchall()
-        return [dict(row) for row in rows]
+            cur = conn.execute(
+                "SELECT id, name, memo, colors_json, image_b64, created_at, updated_at "
+                "FROM fabrics ORDER BY id"
+            )
+            return [dict(row) for row in cur.fetchall()]
 
     def get_fabric(self, fabric_id: int) -> Optional[dict]:
         """IDで1件取得（image_b64含む）"""
@@ -133,6 +134,20 @@ class FabricInventory:
                 "SELECT * FROM fabrics WHERE id = ?", (fabric_id,)
             ).fetchone()
         return dict(row) if row else None
+
+
+    def update_fabric(self, fabric_id: int, name: str, memo: str = "") -> bool:
+        """布生地の名称・メモを更新"""
+        with self._connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE fabrics SET name=?, memo=?, updated_at=? WHERE id=?",
+                (name, memo, datetime.now().isoformat(timespec='seconds'), fabric_id)
+            )
+            if cur.rowcount == 0:
+                raise ValueError(f"ID {fabric_id} が見つからない")
+            conn.commit()
+            return True
 
     def delete_fabric(self, fabric_id: int) -> bool:
         """布生地を削除"""

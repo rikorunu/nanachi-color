@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ナナチカラー</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:15px/1.5 sans-serif;background:#0d0d1a;color:#e0e0ff;display:flex;flex-direction:column;height:100dvh;height:100vh}
+#hd{background:#1a0a2e;padding:12px 16px;text-align:center;color:#c792ea;font-size:1.1em;font-weight:700;border-bottom:1px solid #2e1a5e}
+#hd small{font-size:.72em;color:#9988cc;font-weight:400;margin-left:8px}
+#chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.mu{align-self:flex-end;max-width:82%}
+.ma{align-self:flex-start;max-width:94%}
+.bu{background:#7c3aed;color:#fff;padding:10px 14px;border-radius:18px 18px 4px 18px;word-break:break-word;white-space:pre-wrap}
+.ba{background:#1e1a3e;padding:10px 14px;border-radius:18px 18px 18px 4px;word-break:break-word;border:1px solid #2e1a5e;line-height:1.7}
+.ld .txt-block{color:#8888aa;font-style:italic}
+.txt-block{white-space:pre-wrap;word-break:break-word}
+.card-grid{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.img-card{width:calc(33.33% - 4px);min-width:72px;background:#1a1040;border-radius:8px;overflow:hidden;text-decoration:none;border:1px solid #2e1a5e;display:block;transition:.15s}
+.img-card:hover{border-color:#7c3aed;transform:translateY(-2px);box-shadow:0 4px 12px rgba(124,58,237,.4)}
+.img-card img{width:100%;height:72px;object-fit:cover;display:block}
+.vid-card{width:calc(50% - 3px);background:#1a1040;border-radius:8px;overflow:hidden;text-decoration:none;border:1px solid #2e1a5e;display:block;transition:.15s}
+.vid-card:hover{border-color:#e94560;transform:translateY(-2px);box-shadow:0 4px 12px rgba(233,69,96,.3)}
+.vid-thumb{position:relative;width:100%;aspect-ratio:16/9;background:#0d0820;overflow:hidden}
+.vid-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:38px;height:38px;background:rgba(0,0,0,.75);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;pointer-events:none;border:2px solid rgba(255,255,255,.3)}
+.card-cap{font-size:.7em;padding:4px 6px;color:#b0a0cc;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+@media(max-width:360px){.img-card{width:calc(50% - 3px)}.vid-card{width:100%}}
+#quick{padding:6px 12px 2px;background:#120820;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid #2e1a5e}
+.qbtn{background:#2e1a5e;color:#c8c8ff;border:1px solid #4c1d95;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:.82em;white-space:nowrap}
+.qbtn:hover{background:#3a2a7e}
+#ft{padding:10px 12px;background:#120820;display:flex;gap:8px;border-top:1px solid #2e1a5e;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+#inp{flex:1;background:#1a1a3e;border:1px solid #4c1d95;border-radius:22px;padding:10px 16px;color:#e0e0ff;font-size:.95em;outline:none}
+#inp:focus{border-color:#7c3aed}
+#sbtn{background:#7c3aed;color:#fff;border:none;border-radius:22px;padding:10px 20px;cursor:pointer;font-weight:600;white-space:nowrap;font-size:.95em;align-self:flex-end}
+#sbtn:disabled{background:#3a3a5e;color:#888;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div id="hd">🎨 ナナチカラー<small>配色 / 補色 / パレット / コントラスト</small><button onclick="showFabricPanel()" style="background:#3a1a6e;color:#c8c8ff;border:1px solid #7c3aed;border-radius:16px;padding:5px 13px;cursor:pointer;font-size:.78em;margin-left:10px;vertical-align:middle;">📦 在庫</button></div>
+<div id="fabric-panel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:100;overflow-y:auto;padding:20px;">
+  <div style="background:#1e1a3e;border-radius:12px;padding:20px;max-width:500px;margin:0 auto;">
+    <h2 style="color:#c792ea;margin-bottom:16px;">📦 布生地在庫</h2>
+
+    <!-- 登録フォーム -->
+    <div style="margin-bottom:20px;border:1px solid #2e1a5e;border-radius:8px;padding:16px;">
+      <h3 style="color:#9988cc;margin-bottom:12px;">✨ 新規登録</h3>
+
+      <input type="file" id="fabric-file" accept="image/*" capture="environment" style="display:none" onchange="previewFabric(this)">
+      <button onclick="document.getElementById('fabric-file').click()" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;width:100%;margin-bottom:8px;font-size:.95em;">
+        📷 写真を撮る / 選ぶ
+      </button>
+
+      <div id="fabric-preview" style="display:none;text-align:center;margin-bottom:8px;">
+        <img id="fabric-preview-img" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #2e1a5e;">
+      </div>
+
+      <input type="text" id="fabric-name" placeholder="布生地名（例: 赤いコットン）" style="width:100%;background:#1a1a3e;border:1px solid #4c1d95;border-radius:8px;padding:8px 12px;color:#e0e0ff;margin-bottom:8px;box-sizing:border-box;font-size:.95em;">
+      <input type="text" id="fabric-memo" placeholder="メモ（任意: 素材、購入先など）" style="width:100%;background:#1a1a3e;border:1px solid #4c1d95;border-radius:8px;padding:8px 12px;color:#e0e0ff;margin-bottom:8px;box-sizing:border-box;font-size:.95em;">
+
+      <button onclick="registerFabric()" id="register-btn" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;cursor:pointer;width:100%;font-size:.95em;">
+        ✅ 登録する
+      </button>
+      <div id="register-result" style="color:#9aef9a;font-size:.85em;margin-top:8px;"></div>
+    </div>
+
+    <!-- 在庫一覧 -->
+    <div>
+      <h3 style="color:#9988cc;margin-bottom:12px;">📋 在庫一覧</h3>
+      <div id="fabric-list" style="display:flex;flex-direction:column;gap:8px;">
+        読み込み中...
+      </div>
+    </div>
+
+    <button onclick="hideFabricPanel()" style="background:#3a2a5e;color:#c8c8ff;border:none;border-radius:8px;padding:10px;cursor:pointer;width:100%;margin-top:16px;font-size:.95em;">
+      閉じる
+    </button>
+  </div>
+</div>
+<div id="chat"></div>
+<div id="quick">
+  <button class="qbtn" onclick="quickSend('ランダムな配色を5色生成してくれ')">🎲 ランダム配色</button>
+  <button class="qbtn" onclick="quickComplement()">🔵 補色提案</button>
+  <button class="qbtn" onclick="sendPrompt('在庫の布生地を教えてくれ')">📦 在庫確認</button>
+</div>
+<div id="ft">
+<input id="inp" type="text" placeholder="何でも聞いてくれだよ..." autocomplete="off">
+<button id="sbtn" onclick="doSend()">送信</button>
+</div>
+<script>
+var API='/chat';
+var SID=localStorage.getItem('ncolor_id')||('s'+Date.now());
+localStorage.setItem('ncolor_id',SID);
+var busy=false;
+
+function renderColorSwatches(text){
+  return text.replace(/#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/g,function(hex){
+    return hex+'<span style="display:inline-block;width:16px;height:16px;background:'+hex+';border:1px solid #555;border-radius:2px;vertical-align:middle;margin:0 2px;"></span>';
+  });
+}
+
+function mkImgCard(title,imgUrl,srcUrl){
+  var a=document.createElement('a');
+  a.href=srcUrl||'#';a.target='_blank';a.rel='noopener';a.className='img-card';a.title=title;
+  var img=document.createElement('img');img.src=imgUrl;img.alt=title;img.loading='lazy';
+  img.onerror=function(){this.closest('.img-card').style.display='none';};
+  var cap=document.createElement('div');cap.className='card-cap';cap.textContent=title;
+  a.appendChild(img);a.appendChild(cap);return a;
+}
+
+function mkVidCard(title,vidUrl,thumbUrl){
+  var a=document.createElement('a');
+  a.href=vidUrl||'#';a.target='_blank';a.rel='noopener';a.className='vid-card';a.title=title;
+  var th=document.createElement('div');th.className='vid-thumb';
+  if(thumbUrl){
+    var img=document.createElement('img');img.src=thumbUrl;img.alt=title;img.loading='lazy';
+    img.onerror=function(){this.style.display='none';};
+    th.appendChild(img);
+  }
+  var pb=document.createElement('div');pb.className='play-btn';pb.textContent='▶';th.appendChild(pb);
+  var cap=document.createElement('div');cap.className='card-cap';cap.textContent=title;
+  a.appendChild(th);a.appendChild(cap);return a;
+}
+
+function renderRich(container,text){
+  var swatchedText=renderColorSwatches(text);
+  var parts=swatchedText.split(/(\[IMGCARD:[^\]]*\]|\[VIDCARD:[^\]]*\])/);
+  var grid=null;
+  for(var i=0;i<parts.length;i++){
+    var pt=parts[i];
+    if(pt.length>8&&pt.slice(0,8)==='[IMGCARD'){
+      if(!grid||grid.dataset.t!=='img'){grid=document.createElement('div');grid.className='card-grid';grid.dataset.t='img';container.appendChild(grid);}
+      var iIn=pt.slice(9,-1);var iF=iIn.indexOf('|'),iS=iIn.indexOf('|',iF+1);
+      grid.appendChild(mkImgCard(iIn.slice(0,iF),iIn.slice(iF+1,iS),iIn.slice(iS+1)));
+    }else if(pt.length>8&&pt.slice(0,8)==='[VIDCARD'){
+      if(!grid||grid.dataset.t!=='vid'){grid=document.createElement('div');grid.className='card-grid';grid.dataset.t='vid';container.appendChild(grid);}
+      var vIn=pt.slice(9,-1);var vF=vIn.indexOf('|'),vS=vIn.indexOf('|',vF+1);
+      grid.appendChild(mkVidCard(vIn.slice(0,vF),vIn.slice(vF+1,vS),vIn.slice(vS+1)));
+    }else if(pt.trim()||pt.match(/<span/)){
+      grid=null;
+      var d=document.createElement('div');d.className='txt-block';d.innerHTML=pt;container.appendChild(d);
+    }
+  }
+}
+
+function addMsg(role,text,id){
+  var c=document.getElementById('chat');
+  var w=document.createElement('div');w.className=role==='u'?'mu':'ma';
+  if(id)w.id=id;
+  var b=document.createElement('div');b.className=role==='u'?'bu':'ba';
+  if(role==='u'){b.textContent=text;}else{renderRich(b,text);}
+  w.appendChild(b);c.appendChild(w);c.scrollTop=c.scrollHeight;return w;
+}
+
+function sendPrompt(prompt){
+  if(busy)return;
+  var sbtn=document.getElementById('sbtn');
+  addMsg('u',prompt);busy=true;sbtn.disabled=true;
+  var lid='l'+Date.now();
+  var lw=addMsg('a','調べてるぜ...むにゃ',lid);
+  lw.querySelector('.ba').classList.add('ld');
+
+  function finish(answer){
+    var el=document.getElementById(lid);
+    if(el){el.querySelector('.ba').remove();var nb=document.createElement('div');nb.className='ba';renderRich(nb,answer);el.appendChild(nb);}
+    busy=false;sbtn.disabled=false;
+    document.getElementById('inp').focus();
+    document.getElementById('chat').scrollTop=9999;
+  }
+  function onErr(msg){
+    var el=document.getElementById(lid);
+    if(el){var ba=el.querySelector('.ba');ba.textContent='ERR: '+msg;ba.classList.remove('ld');}
+    busy=false;sbtn.disabled=false;
+  }
+
+  fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:prompt,session_id:SID})})
+  .then(function(r){
+    var reader=r.body.getReader(),dec=new TextDecoder(),buf='';
+    function pump(){
+      return reader.read().then(function(chunk){
+        if(chunk.done)return;
+        buf+=dec.decode(chunk.value,{stream:true});
+        var lines=buf.split('\n');buf=lines.pop();
+        for(var i=0;i<lines.length;i++){
+          if(lines[i].slice(0,6)==='data: '){
+            try{var d=JSON.parse(lines[i].slice(6));if(d.answer||d.reply){finish(d.answer||d.reply);return;}}catch(e){}
+          }
+        }
+        return pump();
+      });
+    }
+    return pump();
+  })
+  .catch(function(e){onErr(e.message);});
+}
+
+function doSend(){
+  var inp=document.getElementById('inp');
+  var prompt=inp.value.trim();if(!prompt)return;
+  inp.value='';sendPrompt(prompt);
+}
+
+function quickSend(msg){sendPrompt(msg);}
+
+function quickComplement(){
+  var val=document.getElementById('inp').value.trim();
+  document.getElementById('inp').value='';
+  sendPrompt(val?val+'の補色を提案して':'#3498DBの補色を提案して');
+}
+
+document.getElementById('inp').addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}
+});
+
+function showFabricPanel(){
+  document.getElementById('fabric-panel').style.display='block';
+  loadFabricList();
+}
+
+function hideFabricPanel(){
+  document.getElementById('fabric-panel').style.display='none';
+}
+
+function previewFabric(input){
+  if(input.files&&input.files[0]){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      document.getElementById('fabric-preview-img').src=e.target.result;
+      document.getElementById('fabric-preview').style.display='block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function registerFabric(){
+  var fileInput=document.getElementById('fabric-file');
+  var name=document.getElementById('fabric-name').value.trim();
+  var memo=document.getElementById('fabric-memo').value.trim();
+  var resultDiv=document.getElementById('register-result');
+
+  if(!fileInput.files||!fileInput.files[0]){
+    resultDiv.style.color='#ef9a9a';
+    resultDiv.textContent='写真を選んでくれ';
+    return;
+  }
+
+  var formData=new FormData();
+  formData.append('file',fileInput.files[0]);
+  formData.append('fabric_name',name||'布生地');
+  formData.append('memo',memo);
+
+  document.getElementById('register-btn').disabled=true;
+  resultDiv.textContent='登録中...';
+  resultDiv.style.color='#9988cc';
+
+  fetch('/upload_fabric',{method:'POST',body:formData})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.error){
+      resultDiv.style.color='#ef9a9a';
+      resultDiv.textContent='エラー: '+d.error;
+    }else{
+      resultDiv.style.color='#9aef9a';
+      resultDiv.textContent=d.message||'登録完了';
+      fileInput.value='';
+      document.getElementById('fabric-name').value='';
+      document.getElementById('fabric-memo').value='';
+      document.getElementById('fabric-preview').style.display='none';
+      loadFabricList();
+      sendPrompt('布生地「'+(d.name||'布生地')+'」を登録したぜ。抽出色を教えてくれ');
+    }
+  })
+  .catch(function(e){
+    resultDiv.style.color='#ef9a9a';
+    resultDiv.textContent='エラー: '+e.message;
+  })
+  .finally(function(){
+    document.getElementById('register-btn').disabled=false;
+  });
+}
+
+function loadFabricList(){
+fetch('/fabric_list').then(r=>r.json()).then(d=>{
+    var listDiv=document.getElementById('fabric-list');
+    if(!d.fabrics||d.fabrics.length===0){
+      listDiv.innerHTML='<p style="color:#888;font-size:.85em;">在庫なしだぜ</p>';return;
+    }
+    listDiv.innerHTML=d.fabrics.map(f=>{
+      var img=f.image_b64?'<img src="data:image/jpeg;base64,'+f.image_b64+'" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #444;">':'<div style="width:60px;height:60px;background:#222;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#666;font-size:.7em;">画像なし</div>';
+      var colors=(f.colors||[]).slice(0,5).map(c=>'<span style="display:inline-block;width:18px;height:18px;background:'+c.hex+';border-radius:3px;border:1px solid #444;margin-right:2px;" title="'+c.hex+'"></span>').join('');
+      return '<div style="background:#1a1a2e;border:1px solid #3a3a5e;border-radius:8px;padding:10px;display:flex;gap:10px;align-items:center;">'
+        +img
+        +'<div style="flex:1;min-width:0;">'
+        +'<div style="color:#c8c8ff;font-weight:bold;font-size:.95em;margin-bottom:4px;">'+f.name+'</div>'
+        +'<div style="color:#888;font-size:.75em;margin-bottom:4px;">'+(f.memo||'メモなし')+'</div>'
+        +'<div>'+colors+'</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;gap:4px;">'
+        +'<button onclick="editFabric('+f.id+',\''+f.name.replace(/\'/g,"\\\'")+'\',\''+(f.memo||'').replace(/\'/g,"\\\'")+'\')" style="background:#1a3a4e;color:#92caff;border:1px solid #3a6a9e;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:.8em;white-space:nowrap;">✏️ 編集</button>'
+        +'<button onclick="deleteFabric('+f.id+',\''+f.name.replace(/\'/g,"\\\'")+'\')" style="background:#4a0a1a;color:#ef9a9a;border:1px solid #7a1a1a;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:.8em;white-space:nowrap;">🗑 削除</button>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+  }).catch(e=>{
+    document.getElementById('fabric-list').innerHTML='<p style="color:#ef9a9a;font-size:.85em;">一覧取得エラー</p>';
+  });;
+}
+
+function askMatchFabric(fabricId,fabricName){
+  hideFabricPanel();
+  sendPrompt('在庫の「'+fabricName+'」(ID:'+fabricId+')に合う配色を在庫の布から提案してくれ');
+}
+
+function editFabric(fabricId, currentName, currentMemo){
+  var newName = prompt('新しい名前を入力してくれ:', currentName);
+  if(newName === null || newName.trim() === '') return;
+  var newMemo = prompt('メモを入力してくれ (空欄OK):', currentMemo || '');
+  if(newMemo === null) newMemo = '';
+  fetch('/update_fabric/'+fabricId, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: newName.trim(), memo: newMemo.trim()})
+  }).then(r=>r.json()).then(d=>{
+    if(d.ok){
+      alert('✅ 更新完了だぜ');
+      loadFabricList();
+    } else {
+      alert('❌ 更新エラー: '+(d.error||'不明'));
+    }
+  }).catch(e=>{
+    alert('❌ 通信エラー: '+e.message);
+  });
+}
+
+function deleteFabric(fabricId,fabricName){
+  if(!confirm('「'+fabricName+'」を在庫から削除するぜ。本当にいいか？'))return;
+  fetch('/delete_fabric/'+fabricId,{method:'DELETE'})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.ok){
+      loadFabricList();
+    }else{
+      alert('削除エラー: '+(d.error||'不明'));
+    }
+  })
+  .catch(function(e){alert('通信エラー: '+e.message);});
+}
+
+addMsg('a','んなぁ～、りょーご！\nカラーAIだぜ。配色・補色・パレット生成、何でも来いだよ。\nHEXコード（例: #FF5733）や色名（桜色・コーラルなど）で聞いてくれな。');
+</script>
+</body>
+</html>

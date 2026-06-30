@@ -94,3 +94,171 @@ def _format_matching_result(results: list, all_colors: list) -> str:
             )
         lines.append("")
     return "\n".join(lines)
+
+
+# ============================================================
+# 2026-06-30 追加: 在庫生地同士の色味組み合わせ提案
+# ============================================================
+import colorsys
+from itertools import combinations
+
+
+def _hex_to_hsv(hex_str):
+    """#RRGGBB → (H[0-360], S[0-1], V[0-1])"""
+    h = hex_str.lstrip('#')
+    if len(h) != 6:
+        return (0.0, 0.0, 0.0)
+    try:
+        r = int(h[0:2], 16) / 255.0
+        g = int(h[2:4], 16) / 255.0
+        b = int(h[4:6], 16) / 255.0
+    except ValueError:
+        return (0.0, 0.0, 0.0)
+    hh, ss, vv = colorsys.rgb_to_hsv(r, g, b)
+    return (hh * 360.0, ss, vv)
+
+
+def _hue_diff(h1, h2):
+    """色相環上の最短距離 0〜180"""
+    d = abs(h1 - h2) % 360.0
+    return min(d, 360.0 - d)
+
+
+def _classify_pair(c1_hex, c2_hex):
+    """2色ペアを分類して (タイプ名, スコア0-100, 理由) を返す"""
+    h1, s1, v1 = _hex_to_hsv(c1_hex)
+    h2, s2, v2 = _hex_to_hsv(c2_hex)
+
+    # ニュートラル判定 (彩度低 or 極端な明度)
+    is_neutral_1 = s1 < 0.20 or v1 < 0.20 or v1 > 0.92
+    is_neutral_2 = s2 < 0.20 or v2 < 0.20 or v2 > 0.92
+
+    hd = _hue_diff(h1, h2)
+    vd = abs(v1 - v2)
+    sd = abs(s1 - s2)
+
+    # ニュートラル含有は最強の万能ペア
+    if is_neutral_1 or is_neutral_2:
+        score = 85 + min(vd * 20, 10)  # 明度差あるほど高評価
+        return ("ニュートラル調和", round(score, 1),
+                f"片方が無彩色寄り(S={min(s1,s2):.2f}) → 万能に合う")
+
+    # 色相による分類
+    if hd <= 30:
+        # 類似色: 明度差が欲しい
+        score = 75 + min(vd * 30, 20) - sd * 10
+        return ("類似色調和", round(max(score, 0), 1),
+                f"色相差{hd:.0f}° 同系統まとめ・上品")
+    elif 150 <= hd <= 210:
+        score = 85 + min(vd * 15, 10) - abs(0.5 - max(s1, s2)) * 20
+        return ("補色調和", round(max(score, 0), 1),
+                f"色相差{hd:.0f}° メリハリ最強・アクセント")
+    elif 100 <= hd < 150 or 210 < hd <= 250:
+        score = 70 + min(vd * 20, 15)
+        return ("トライアド調和", round(max(score, 0), 1),
+                f"色相差{hd:.0f}° 3色構成のバランス型")
+    elif 30 < hd < 100:
+        # 中途半端な距離 = にごる可能性
+        score = 45 + min(vd * 25, 15)
+        return ("分裂補色（要注意）", round(max(score, 0), 1),
+                f"色相差{hd:.0f}° 中間距離・配色難")
+    else:
+        score = 55
+        return ("その他", round(score, 1), f"色相差{hd:.0f}°")
+
+
+def suggest_combinations(top_n=5, db_path=None):
+    """
+    在庫生地全件から2枚ペアを総当たりで評価し、上位 top_n ペアを返す。
+    fabric_inventory.py の内部 DB を直接読む方式。
+    """
+    import sqlite3
+    import json
+    import os
+
+    if db_path is None:
+        db_path = os.path.join(os.path.dirname(__file__), "fabric_inventory.db")
+
+    if not os.path.isfile(db_path):
+        return {"pairs": [], "message": "DBファイルが見つからない: " + db_path}
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT id, name, image_b64, colors_json FROM fabrics ORDER BY id")
+    rows = cur.fetchall()
+    conn.close()
+
+    fabrics = []
+    for r in rows:
+        try:
+            colors = json.loads(r["colors_json"]) if r["colors_json"] else []
+        except Exception:
+            colors = []
+        fabrics.append({
+            "id": r["id"],
+            "name": r["name"] or "",
+            "image_b64": r["image_b64"] or "",
+            "colors": colors,
+        })
+
+    if len(fabrics) < 2:
+        return {"pairs": [], "message": "在庫が2件未満のため組み合わせ提案不可"}
+
+    pair_results = []
+
+    for f1, f2 in combinations(fabrics, 2):
+        colors_1 = f1.get('colors', []) or []
+        colors_2 = f2.get('colors', []) or []
+        if not colors_1 or not colors_2:
+            continue
+
+        best_pair = None
+        best_score = -1.0
+        all_scores = []
+
+        for c1 in colors_1:
+            for c2 in colors_2:
+                hex1 = c1.get('hex', '') if isinstance(c1, dict) else ''
+                hex2 = c2.get('hex', '') if isinstance(c2, dict) else ''
+                if not hex1 or not hex2:
+                    continue
+                ptype, score, reason = _classify_pair(hex1, hex2)
+                all_scores.append(score)
+                if score > best_score:
+                    best_score = score
+                    best_pair = {
+                        "color1": {"hex": hex1, "name_jp": c1.get('name_jp', '') if isinstance(c1, dict) else ''},
+                        "color2": {"hex": hex2, "name_jp": c2.get('name_jp', '') if isinstance(c2, dict) else ''},
+                        "type": ptype,
+                        "score": score,
+                        "reason": reason,
+                    }
+
+        if best_pair is None:
+            continue
+
+        avg_score = round(sum(all_scores) / len(all_scores), 1) if all_scores else 0
+        pair_results.append({
+            "fabric1": {
+                "id": f1['id'],
+                "name": f1['name'],
+                "display": f1['name'] + "#" + str(f1['id']),
+                "image_b64": f1.get('image_b64', ''),
+            },
+            "fabric2": {
+                "id": f2['id'],
+                "name": f2['name'],
+                "display": f2['name'] + "#" + str(f2['id']),
+                "image_b64": f2.get('image_b64', ''),
+            },
+            "best_match": best_pair,
+            "overall_score": avg_score,
+        })
+
+    pair_results.sort(key=lambda x: x['best_match']['score'], reverse=True)
+
+    return {
+        "total_pairs_evaluated": len(pair_results),
+        "pairs": pair_results[:top_n],
+    }
