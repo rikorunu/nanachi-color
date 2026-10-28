@@ -48,7 +48,7 @@ app.add_middleware(
 
 # ===== 設定 =====
 OLLAMA = "http" + "://" + "localhost" + ":" + "11434"
-MODEL  = os.getenv("OLLAMA_MODEL", "nanachi-qwen14b")
+MODEL  = os.getenv("OLLAMA_MODEL", "nanachi-gemma4")
 PROMPT_FILE  = os.getenv("OLLAMA_AGENT_PROMPT_FILE", "/home/arc_e/nanachi-color/color_system_prompt.txt")
 # システムプロンプト: ファイルがあれば読み込む、なければデフォルト
 if Path(PROMPT_FILE).exists():
@@ -214,17 +214,18 @@ def _ensure_model_loaded():
     try:
         ps = _req.get("http://localhost:11434/api/ps", timeout=3).json()
         models = ps.get("models", [])
-        loaded = any("nanachi-qwen14b" in m.get("name", "") for m in models)
+        loaded = any(MODEL in m.get("name", "") for m in models)
         if not loaded:
             print("[WARMUP] model unloaded detected, re-warming...", flush=True)
             t0 = time.time()
             _req.post(
                 "http://localhost:11434/api/generate",
                 json={
-                    "model": "nanachi-qwen14b",
+                    "model": MODEL,
                     "prompt": "ナナチだぜ",
                     "stream": False,
                     "keep_alive": "60m",
+                    "think": False,
                     "options": {"num_predict": 1, "num_ctx": 2048}
                 },
                 timeout=180
@@ -504,7 +505,14 @@ def rag_search(query: str) -> str:
     try:
         import chromadb
         from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
-        ef = OllamaEmbeddingFunction(
+        # 2026-10-28: gemma4:26b(18GB)でVRAM16GBが埋まり、埋め込みをGPUに載せると
+        # チャット用モデルを追い出して毎回再ロードが起きる。options を渡せないので CPU 指定版にする。
+        class _CpuOllamaEmbeddingFunction(OllamaEmbeddingFunction):
+            def __call__(self, input):
+                import numpy as np
+                response = self._client.embed(model=self.model_name, input=input, options={"num_gpu": 0})
+                return [np.array(e, dtype=np.float32) for e in response["embeddings"]]
+        ef = _CpuOllamaEmbeddingFunction(
             url="http://localhost:11434/api/embeddings",
             model_name="nomic-embed-text"
         )
@@ -576,7 +584,7 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 def _make_llm():
     if LLM_BACKEND == "groq" and ChatGroq and os.getenv("GROQ_API_KEY"):
         return ChatGroq(model=GROQ_MODEL, temperature=0.2)
-    return ChatOllama(model=MODEL, base_url=OLLAMA, temperature=0)
+    return ChatOllama(model=MODEL, base_url=OLLAMA, temperature=0, reasoning=False)
 llm = _make_llm()
 agent = create_react_agent(llm, tools)
 
@@ -596,7 +604,8 @@ async def preload_model():
             await c.post(
                 "http://localhost:11434/api/chat",
                 json={
-                    "model": "nanachi-qwen14b",
+                    "model": MODEL,
+                    "think": False,
                     "messages": [
                         {"role": "system", "content": _sp},
                         {"role": "user",   "content": "起動確認"}

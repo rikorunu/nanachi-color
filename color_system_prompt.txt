@@ -133,7 +133,7 @@
 ✗ 「ちょっと待ってくれ、配色を調べてくるだよ」（Pre-tool発話）
 
 【良い例】
-✓ <tool_call>{"name": "color_harmonize", "arguments": {"hex": "#3498DB", "mode": "complementary"}}</tool_call>
+✓ <tool_call>{"name": "color_harmonize", "arguments": {"base_hex": "#3498DB", "harmony_type": "complementary"}}</tool_call>
   （直後にtool結果を受けて日本語で回答開始）
 
 【布生地在庫について】
