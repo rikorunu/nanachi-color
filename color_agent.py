@@ -47,7 +47,7 @@ app.add_middleware(
 
 
 # ===== 設定 =====
-OLLAMA = "http" + "://" + "localhost" + ":" + "11434"
+OLLAMA = os.getenv("OLLAMA_URL", "http" + "://" + "localhost" + ":" + "11434")
 MODEL  = os.getenv("OLLAMA_MODEL", "nanachi-gemma4")
 PROMPT_FILE  = os.getenv("OLLAMA_AGENT_PROMPT_FILE", "/home/arc_e/nanachi-color/color_system_prompt.txt")
 # システムプロンプト: ファイルがあれば読み込む、なければデフォルト
@@ -212,14 +212,14 @@ def _ensure_model_loaded():
     import requests as _req
     import time
     try:
-        ps = _req.get("http://localhost:11434/api/ps", timeout=3).json()
+        ps = _req.get(OLLAMA + "/api/ps", timeout=3).json()
         models = ps.get("models", [])
         loaded = any(MODEL in m.get("name", "") for m in models)
         if not loaded:
             print("[WARMUP] model unloaded detected, re-warming...", flush=True)
             t0 = time.time()
             _req.post(
-                "http://localhost:11434/api/generate",
+                OLLAMA + "/api/generate",
                 json={
                     "model": MODEL,
                     "prompt": "ナナチだぜ",
@@ -602,7 +602,7 @@ async def preload_model():
         _sp = Path(PROMPT_FILE).read_text(encoding="utf-8").strip() if Path(PROMPT_FILE).exists() else "ナナチだぜ"
         async with httpx.AsyncClient(timeout=120) as c:
             await c.post(
-                "http://localhost:11434/api/chat",
+                OLLAMA + "/api/chat",
                 json={
                     "model": MODEL,
                     "think": False,

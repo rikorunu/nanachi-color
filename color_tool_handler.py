@@ -671,7 +671,28 @@ def process_reply(reply: str, tools_map: dict) -> str:
             return f"[未定義のツール: {tool_name}]"
 
         try:
-            if isinstance(arguments, dict):
+            # 35Bは引数名を推測で付ける(expr→expression等)。名前が合わなければ順番で付け替える
+            if isinstance(arguments, dict) and arguments:
+                import inspect as _insp
+                try:
+                    _names = list(func.args.keys()) if hasattr(func, "args") and isinstance(getattr(func, "args"), dict) \
+                        else list(_insp.signature(func).parameters.keys())
+                except (TypeError, ValueError):
+                    _names = []
+                if _names and not set(arguments) <= set(_names):
+                    _keep = {k: v for k, v in arguments.items() if k in _names}
+                    _rest = [v for k, v in arguments.items() if k not in _names]
+                    for n in _names:
+                        if n not in _keep and _rest:
+                            _keep[n] = _rest.pop(0)
+                    arguments = _keep
+            # LangChainのStructuredToolは直接呼べない(35B切替で発覚)
+            if hasattr(func, "invoke") and not callable(func):
+                if not isinstance(arguments, dict):
+                    _n = list(func.args.keys())
+                    arguments = {_n[0]: arguments} if _n else {}
+                result = func.invoke(arguments)
+            elif isinstance(arguments, dict):
                 result = func(**arguments)
             elif isinstance(arguments, list):
                 result = func(*arguments)
