@@ -1,6 +1,11 @@
 # ChromaDB (大容量・ローカル専用)
 color_rag_db/
 
+# バックアップファイル (F6教訓: bakは作るがgitには含めない)
+*.bak_*
+*.bak
+*.broken_*
+
 # Python
 __pycache__/
 *.pyc
@@ -23,3 +28,6 @@ venv/
 # DB
 *.db
 *.sqlite3
+
+# 環境変数(Supabase接続情報等の機密情報)
+.env
